@@ -1,0 +1,131 @@
+{
+  "app": {
+    "name": "Cycle Tracker",
+    "tagline": "Track your cycle with confidence"
+  },
+  "tabs": {
+    "home": "Home",
+    "history": "History",
+    "insights": "Insights",
+    "settings": "Settings"
+  },
+  "home": {
+    "next_period": "Next period",
+    "ovulation": "Ovulation",
+    "cycle_length": "Cycle length",
+    "fertile_window": "Fertile window",
+    "in_days": "in {{count}} days",
+    "days_ago": "{{count}} days ago",
+    "today": "Today",
+    "log_period": "Log period start",
+    "save": "Save",
+    "calculated": "From your data",
+    "estimated": "Estimated"
+  },
+  "history": {
+    "title": "Period history",
+    "empty": "No periods logged yet.\nStart by logging your first period on the Home tab.",
+    "cycle_gap": "{{count}}-day cycle",
+    "first_entry": "First entry",
+    "delete_confirm": "Are you sure you want to delete this entry?",
+    "delete": "Delete",
+    "cancel": "Cancel"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "calendar_type": "Calendar type",
+    "calendar_gregorian": "Gregorian",
+    "calendar_hijri": "Hijri",
+    "theme_title": "Appearance",
+    "theme_system": "System",
+    "theme_light": "Light",
+    "theme_dark": "Dark",
+    "cycle_defaults": "Cycle defaults",
+    "fallback_cycle": "Default cycle length",
+    "period_duration": "Period duration",
+    "days": "{{count}} days",
+    "about": "About",
+    "version": "Version {{version}}",
+    "fallback_note": "Used when fewer than 2 periods are logged",
+    "security_title": "Security",
+    "app_lock": "App Lock",
+    "app_lock_note": "Require Face ID or fingerprint to open the app",
+    "app_lock_prompt": "Unlock to view your data",
+    "use_passcode": "Use Passcode",
+    "unlock": "Unlock",
+    "biometric_unavailable": "Biometric authentication is not available or not set up on this device.",
+    "notifications_title": "Notifications",
+    "reminders": "Smart Reminders",
+    "reminders_note": "Get notified about upcoming periods and daily logging",
+    "notifications_denied": "Notification permissions were denied. Enable them in your device settings."
+  },
+  "legend": {
+    "period": "Period",
+    "fertile": "Fertile",
+    "ovulation": "Ovulation",
+    "predicted": "Predicted"
+  },
+  "phase": {
+    "menstrual": "Menstrual Phase",
+    "follicular": "Follicular Phase",
+    "ovulatory": "Ovulatory Phase",
+    "luteal": "Luteal Phase",
+    "day_of": "Day {{day}} of your cycle",
+    "menstrual_tip": "Rest and recovery — listen to your body",
+    "follicular_tip": "Rising energy — great time for new projects",
+    "ovulatory_tip": "Peak energy — ideal for social events & workouts",
+    "luteal_tip": "Wind down — focus on self-care & gentle movement"
+  },
+  "insights": {
+    "title": "Insights",
+    "avg_cycle": "Average Cycle",
+    "avg_period": "Average Period",
+    "variance": "Typical Variance",
+    "most_common_symptoms": "Common Symptoms",
+    "no_data": "Not enough data",
+    "days": "{{count}} days",
+    "days_variance": "±{{count}} days",
+    "symptom_heatmap": "Symptom Patterns",
+    "cycle_day": "Cycle day →"
+  },
+  "errors": {
+    "duplicate_date": "A period is already logged for this date",
+    "save_failed": "Failed to save. Please try again.",
+    "delete_failed": "Failed to delete. Please try again."
+  },
+  "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "close": "Close"
+  },
+  "day_details": {
+    "title": "Day Details",
+    "period_started": "Period Started",
+    "flow": "Flow",
+    "flow_light": "Light",
+    "flow_medium": "Medium",
+    "flow_heavy": "Heavy",
+    "symptoms": "Symptoms",
+    "symptom_cramps": "Cramps",
+    "symptom_headache": "Headache",
+    "symptom_bloating": "Bloating",
+    "symptom_acne": "Acne",
+    "symptom_fatigue": "Fatigue",
+    "mood": "Mood",
+    "mood_happy": "Happy",
+    "mood_sensitive": "Sensitive",
+    "mood_sad": "Sad",
+    "mood_anxious": "Anxious",
+    "notes": "Notes",
+    "save": "Save",
+    "saving": "Saving...",
+    "export_data": "Export Data"
+  },
+  "notifications": {
+    "period_title": "Period Reminder",
+    "period_body": "Your period is predicted to start in 2 days",
+    "log_title": "Daily Check-in",
+    "log_body": "How are you feeling today? Log your symptoms"
+  }
+}

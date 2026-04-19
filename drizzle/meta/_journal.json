@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1776604583072,
+      "tag": "0000_bitter_emma_frost",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1776608566096,
+      "tag": "0001_fair_venom",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1776632841757,
+      "tag": "0002_smooth_centennial",
+      "breakpoints": true
+    }
+  ]
+}

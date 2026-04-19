@@ -1,0 +1,131 @@
+{
+  "app": {
+    "name": "Suivi de cycle",
+    "tagline": "Suivez votre cycle en toute confiance"
+  },
+  "tabs": {
+    "home": "Accueil",
+    "history": "Historique",
+    "insights": "Analyses",
+    "settings": "Réglages"
+  },
+  "home": {
+    "next_period": "Prochaines règles",
+    "ovulation": "Ovulation",
+    "cycle_length": "Durée du cycle",
+    "fertile_window": "Fenêtre de fertilité",
+    "in_days": "dans {{count}} jours",
+    "days_ago": "il y a {{count}} jours",
+    "today": "Aujourd'hui",
+    "log_period": "Enregistrer le début des règles",
+    "save": "Enregistrer",
+    "calculated": "Selon vos données",
+    "estimated": "Estimé"
+  },
+  "history": {
+    "title": "Historique des règles",
+    "empty": "Aucune période enregistrée.\nCommencez par enregistrer vos premières règles dans l'onglet Accueil.",
+    "cycle_gap": "Cycle de {{count}} jours",
+    "first_entry": "Première entrée",
+    "delete_confirm": "Êtes-vous sûre de vouloir supprimer cette entrée ?",
+    "delete": "Supprimer",
+    "cancel": "Annuler"
+  },
+  "settings": {
+    "title": "Réglages",
+    "language": "Langue",
+    "calendar_type": "Type de calendrier",
+    "calendar_gregorian": "Grégorien",
+    "calendar_hijri": "Hégirien",
+    "theme_title": "Apparence",
+    "theme_system": "Système",
+    "theme_light": "Clair",
+    "theme_dark": "Sombre",
+    "cycle_defaults": "Paramètres du cycle",
+    "fallback_cycle": "Durée du cycle par défaut",
+    "period_duration": "Durée des règles",
+    "days": "{{count}} jours",
+    "about": "À propos",
+    "version": "Version {{version}}",
+    "fallback_note": "Utilisé lorsque moins de 2 périodes sont enregistrées",
+    "security_title": "Sécurité",
+    "app_lock": "Verrouillage",
+    "app_lock_note": "Exiger Face ID ou empreinte pour ouvrir l'app",
+    "app_lock_prompt": "Déverrouillez pour accéder à vos données",
+    "use_passcode": "Utiliser le code",
+    "unlock": "Déverrouiller",
+    "biometric_unavailable": "L'authentification biométrique n'est pas disponible ou pas configurée sur cet appareil.",
+    "notifications_title": "Notifications",
+    "reminders": "Rappels intelligents",
+    "reminders_note": "Recevez des alertes pour vos règles et le suivi quotidien",
+    "notifications_denied": "Les permissions de notification ont été refusées. Activez-les dans les paramètres."
+  },
+  "legend": {
+    "period": "Règles",
+    "fertile": "Fertile",
+    "ovulation": "Ovulation",
+    "predicted": "Prévu"
+  },
+  "phase": {
+    "menstrual": "Phase menstruelle",
+    "follicular": "Phase folliculaire",
+    "ovulatory": "Phase ovulatoire",
+    "luteal": "Phase lutéale",
+    "day_of": "Jour {{day}} de votre cycle",
+    "menstrual_tip": "Repos et récupération — écoutez votre corps",
+    "follicular_tip": "Énergie montante — idéal pour de nouveaux projets",
+    "ovulatory_tip": "Énergie maximale — parfait pour le sport et les sorties",
+    "luteal_tip": "Ralentissez — concentrez-vous sur le bien-être"
+  },
+  "insights": {
+    "title": "Analyses",
+    "avg_cycle": "Cycle moyen",
+    "avg_period": "Règles moyennes",
+    "variance": "Variation typique",
+    "most_common_symptoms": "Symptômes fréquents",
+    "no_data": "Pas assez de données",
+    "days": "{{count}} jours",
+    "days_variance": "±{{count}} jours",
+    "symptom_heatmap": "Tendances des symptômes",
+    "cycle_day": "Jour du cycle →"
+  },
+  "errors": {
+    "duplicate_date": "Une période est déjà enregistrée à cette date",
+    "save_failed": "Échec de l'enregistrement. Veuillez réessayer.",
+    "delete_failed": "Échec de la suppression. Veuillez réessayer."
+  },
+  "common": {
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "close": "Fermer"
+  },
+  "day_details": {
+    "title": "Détails du jour",
+    "period_started": "Les règles ont commencé",
+    "flow": "Flux",
+    "flow_light": "Léger",
+    "flow_medium": "Moyen",
+    "flow_heavy": "Abondant",
+    "symptoms": "Symptômes",
+    "symptom_cramps": "Crampes",
+    "symptom_headache": "Maux de tête",
+    "symptom_bloating": "Ballonnements",
+    "symptom_acne": "Acné",
+    "symptom_fatigue": "Fatigue",
+    "mood": "Humeur",
+    "mood_happy": "Heureuse",
+    "mood_sensitive": "Sensible",
+    "mood_sad": "Triste",
+    "mood_anxious": "Anxieuse",
+    "notes": "Notes",
+    "save": "Enregistrer",
+    "saving": "Enregistrement...",
+    "export_data": "Exporter mes données"
+  },
+  "notifications": {
+    "period_title": "Rappel de règles",
+    "period_body": "Vos règles devraient commencer dans 2 jours",
+    "log_title": "Suivi quotidien",
+    "log_body": "Comment vous sentez-vous aujourd'hui ? Notez vos symptômes"
+  }
+}
