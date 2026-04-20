@@ -12,7 +12,8 @@
       "infoPlist": {
         "CFBundleAllowMixedLocalizations": true,
         "NSFaceIDUsageDescription": "Protect your cycle data with Face ID"
-      }
+      },
+      "bundleIdentifier": "com.doumbia225.tracker"
     },
     "android": {
       "adaptiveIcon": {
@@ -60,10 +61,6 @@
       ],
       "expo-notifications"
     ],
-    "locales": {
-      "fr": "./src/i18n/locales/fr.json",
-      "en": "./src/i18n/locales/en.json"
-    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
