@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "tracker",
-    "slug": "tracker",
+    "name": "Lumi",
+    "slug": "lumi",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "tracker",
+    "icon": "./assets/images/new-icon.png",
+    "scheme": "lumi",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/images/new-icon.png",
       "infoPlist": {
         "CFBundleAllowMixedLocalizations": true,
         "NSFaceIDUsageDescription": "Protect your cycle data with Face ID"
@@ -17,10 +17,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/images/new-adaptive-icon.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.doumbia225.tracker",
@@ -38,11 +36,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#C06C84",
-          "android": {
-            "image": "./assets/images/splash-icon.png",
-            "imageWidth": 76
-          }
+          "backgroundColor": "#FFFFFF",
+          "image": "./assets/images/new-splash.png",
+          "imageWidth": 200
         }
       ],
       "expo-localization",
