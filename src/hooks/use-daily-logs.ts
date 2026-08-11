@@ -34,15 +34,27 @@ export function useDailyLogs(): UseDailyLogsReturn {
       // Check if a log already exists for this date
       const existing = await db.select().from(dailyLogs).where(eq(dailyLogs.date, date));
 
+      const isEmpty =
+        !partial.flow &&
+        (!partial.symptoms || partial.symptoms.length === 0) &&
+        !partial.mood &&
+        !partial.notes;
+
       if (existing.length > 0) {
-        // Update existing
-        await db
-          .update(dailyLogs)
-          .set({ ...partial, updatedAt: Date.now() })
-          .where(eq(dailyLogs.date, date));
-      } else {
-        // Empty partial state? Don't create an empty log unless explicitly asked
-        // Actually, if they are pressing save, they want to save *something*.
+        if (isEmpty) {
+          // Every field was cleared — delete the row instead of leaving
+          // stale data behind under an empty-looking update.
+          await db.delete(dailyLogs).where(eq(dailyLogs.date, date));
+        } else {
+          await db
+            .update(dailyLogs)
+            .set({ ...partial, updatedAt: Date.now() })
+            .where(eq(dailyLogs.date, date));
+        }
+      } else if (!isEmpty) {
+        // Nothing existed and there's something to save — create it.
+        // If nothing existed and nothing was provided, this is a no-op:
+        // don't create an empty log just because Save was pressed.
         await db.insert(dailyLogs).values({
           date,
           ...partial,

@@ -1,9 +1,16 @@
 /**
  * Day Details screen (Modal).
  * Manage periods, flow, symptoms, mood, and notes for a specific day.
+ *
+ * Split into a data-loading shell (this default export) and an inner
+ * form (DayDetailsForm) that owns all editable state. The inner form is
+ * only mounted once `periods` and `logs` have resolved from their live
+ * queries, and is keyed by `date` — so its useState initializers read
+ * real data exactly once instead of racing the async query and silently
+ * initializing blank (see plan item 2a).
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -26,43 +33,101 @@ import { useTheme } from '@/providers/theme-provider';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
+import { LoadingScreen } from '@/components/ui/loading-screen';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { usePeriods } from '@/hooks/use-periods';
 import { formatDisplayDate, parseISODate } from '@/utils/date';
 import { useSettings } from '@/hooks/use-settings';
+import type { DailyLog } from '@/db/schema';
 
 const SYMPTOMS = ['cramps', 'headache', 'bloating', 'acne', 'fatigue'];
 const MOODS = ['happy', 'sensitive', 'sad', 'anxious'];
 
 export default function DayDetailsScreen() {
   const { date } = useLocalSearchParams<{ date: string }>();
+  const { settings } = useSettings();
+  const {
+    periods,
+    addPeriod,
+    removePeriod,
+    error: periodError,
+    isLoading: periodsLoading,
+  } = usePeriods();
+  const { logs, saveLog, isLoading: logsLoading } = useDailyLogs();
+
+  if (!date) return null;
+
+  // Wait for both live queries to resolve before mounting the form, so
+  // its initial state is never derived from an empty placeholder array.
+  if (periodsLoading || logsLoading) {
+    return (
+      <View style={{ flex: 1 }}>
+        <LoadingScreen />
+      </View>
+    );
+  }
+
+  const currentLog = logs.find((l) => l.date === date) ?? null;
+  const periodOnDate = periods.find((p) => p.startDate === date) ?? null;
+
+  return (
+    <DayDetailsForm
+      key={date}
+      date={date}
+      language={(settings?.language as 'en' | 'fr') ?? 'fr'}
+      calendarType={(settings?.calendarType as 'gregorian' | 'hijri') ?? 'gregorian'}
+      initialLog={currentLog}
+      initialPeriodId={periodOnDate?.id ?? null}
+      periodError={periodError}
+      addPeriod={addPeriod}
+      removePeriod={removePeriod}
+      saveLog={saveLog}
+    />
+  );
+}
+
+type DayDetailsFormProps = {
+  date: string;
+  language: 'en' | 'fr';
+  calendarType: 'gregorian' | 'hijri';
+  initialLog: DailyLog | null;
+  initialPeriodId: string | null;
+  periodError: string | null;
+  addPeriod: (date: string) => Promise<void>;
+  removePeriod: (id: string) => Promise<void>;
+  saveLog: (
+    date: string,
+    partial: { flow: string | null; symptoms: string[]; mood: string | null; notes: string | null },
+  ) => Promise<void>;
+};
+
+function DayDetailsForm({
+  date,
+  language,
+  calendarType,
+  initialLog,
+  initialPeriodId,
+  periodError,
+  addPeriod,
+  removePeriod,
+  saveLog,
+}: DayDetailsFormProps) {
   const router = useRouter();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
 
-  const { settings } = useSettings();
-  const { periods, addPeriod, removePeriod } = usePeriods();
-  const { logs, saveLog } = useDailyLogs();
-
-  const currentLog = logs.find((l) => l.date === date);
-  const periodOnDate = periods.find((p) => p.startDate === date);
-
-  const [isPeriodStart, setIsPeriodStart] = useState(!!periodOnDate);
+  const [isPeriodStart, setIsPeriodStart] = useState(!!initialPeriodId);
   const [flow, setFlow] = useState<'light' | 'medium' | 'heavy' | null>(
-    (currentLog?.flow as 'light' | 'medium' | 'heavy') ?? null,
+    (initialLog?.flow as 'light' | 'medium' | 'heavy') ?? null,
   );
-  const [symptoms, setSymptoms] = useState<string[]>(currentLog?.symptoms ?? []);
-  const [mood, setMood] = useState<string | null>(currentLog?.mood ?? null);
-  const [notes, setNotes] = useState(currentLog?.notes ?? '');
+  const [symptoms, setSymptoms] = useState<string[]>(initialLog?.symptoms ?? []);
+  const [mood, setMood] = useState<string | null>(initialLog?.mood ?? null);
+  const [notes, setNotes] = useState(initialLog?.notes ?? '');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    setIsPeriodStart(!!periodOnDate);
-  }, [periodOnDate]);
 
   const toggleSymptom = useCallback((symptom: string) => {
     setSymptoms((prev) =>
@@ -72,27 +137,32 @@ export default function DayDetailsScreen() {
     );
   }, []);
 
+  const handleFlowChange = useCallback((val: string) => {
+    // Tapping the already-active option deselects it, since
+    // SegmentedControl always fires onChange with the pressed value.
+    setFlow((prev) => (prev === val ? null : (val as 'light' | 'medium' | 'heavy')));
+  }, []);
+
   const handleSave = useCallback(async () => {
-    if (!date) return;
     setSaving(true);
 
     try {
       // Manage period toggle
-      if (isPeriodStart && !periodOnDate) {
+      if (isPeriodStart && !initialPeriodId) {
         await addPeriod(date);
-      } else if (!isPeriodStart && periodOnDate) {
-        await removePeriod(periodOnDate.id);
+      } else if (!isPeriodStart && initialPeriodId) {
+        await removePeriod(initialPeriodId);
       }
 
-      // Save daily log data if there is any to save (or if we are clearing it)
-      if (flow || symptoms.length > 0 || mood || notes) {
-        await saveLog(date, {
-          flow: flow ?? null,
-          symptoms,
-          mood: mood ?? null,
-          notes: notes || null,
-        });
-      }
+      // Always save — saveLog itself deletes the row when every field is
+      // empty, so clearing a previously-logged day now actually clears it
+      // instead of silently leaving the old data in place (plan item 2b).
+      await saveLog(date, {
+        flow: flow ?? null,
+        symptoms,
+        mood: mood ?? null,
+        notes: notes || null,
+      });
     } finally {
       setSaving(false);
       setSaved(true);
@@ -101,15 +171,9 @@ export default function DayDetailsScreen() {
         router.back();
       }, 600);
     }
-  }, [date, isPeriodStart, periodOnDate, flow, symptoms, mood, notes, addPeriod, removePeriod, saveLog, router]);
+  }, [date, isPeriodStart, initialPeriodId, flow, symptoms, mood, notes, addPeriod, removePeriod, saveLog, router]);
 
-  if (!date) return null;
-
-  const displayDate = formatDisplayDate(
-    parseISODate(date),
-    (settings?.language as 'en' | 'fr') ?? 'fr',
-    (settings?.calendarType as 'gregorian' | 'hijri') ?? 'gregorian',
-  );
+  const displayDate = formatDisplayDate(parseISODate(date), language, calendarType);
 
   return (
     <KeyboardAvoidingView
@@ -144,6 +208,9 @@ export default function DayDetailsScreen() {
                 thumbColor={colors.surface}
               />
             </View>
+            {periodError ? (
+              <Text style={styles.error}>{t(`errors.${periodError}`)}</Text>
+            ) : null}
           </Card>
         </Animated.View>
 
@@ -157,7 +224,7 @@ export default function DayDetailsScreen() {
                 { label: t('day_details.flow_heavy'), value: 'heavy' },
               ]}
               value={(flow as string) || ''}
-              onChange={(val) => setFlow(val as 'light' | 'medium' | 'heavy')}
+              onChange={handleFlowChange}
             />
           </Card>
         </Animated.View>
@@ -277,6 +344,10 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: Typography.sizes.md,
     fontWeight: Typography.weights.medium,
     color: colors.textPrimary,
+  },
+  error: {
+    fontSize: Typography.sizes.sm,
+    color: colors.danger,
   },
   sectionTitle: {
     fontSize: Typography.sizes.sm,
