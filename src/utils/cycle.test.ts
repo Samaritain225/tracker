@@ -8,8 +8,10 @@ import {
   computeFertileWindow,
   computeNextPeriod,
   computeOvulationDay,
+  computePeriodDuration,
   getDayType,
 } from './cycle';
+import type { PeriodRange } from './cycle';
 import { addDays, parseISODate, toISODate } from './date';
 
 /**
@@ -123,9 +125,46 @@ describe('computeFertileWindow', () => {
   });
 });
 
+describe('computePeriodDuration', () => {
+  const defaultDurationDays = 5;
+
+  it('uses the explicit endDate when set, overriding everything else', () => {
+    const period = { startDate: '2025-01-01', endDate: '2025-01-04' };
+    // Even with flow logged for a different, longer span, endDate wins.
+    const flowLoggedDates = new Set(['2025-01-01', '2025-01-02', '2025-01-03', '2025-01-04', '2025-01-05', '2025-01-06']);
+    expect(computePeriodDuration(period, flowLoggedDates, defaultDurationDays)).toBe(4);
+  });
+
+  it('derives duration from consecutive flow-logged days when no endDate is set', () => {
+    const period = { startDate: '2025-01-01', endDate: null };
+    const flowLoggedDates = new Set(['2025-01-01', '2025-01-02', '2025-01-03']);
+    expect(computePeriodDuration(period, flowLoggedDates, defaultDurationDays)).toBe(3);
+  });
+
+  it('stops at the first gap in flow-logged days', () => {
+    const period = { startDate: '2025-01-01', endDate: null };
+    // 01 and 02 logged, 03 skipped, 04 logged — duration stops at the gap.
+    const flowLoggedDates = new Set(['2025-01-01', '2025-01-02', '2025-01-04']);
+    expect(computePeriodDuration(period, flowLoggedDates, defaultDurationDays)).toBe(2);
+  });
+
+  it('falls back to the default when neither endDate nor flow logs are available', () => {
+    const period = { startDate: '2025-01-01', endDate: null };
+    expect(computePeriodDuration(period, new Set(), defaultDurationDays)).toBe(defaultDurationDays);
+  });
+
+  it('falls back to the default when the start date itself has no flow logged', () => {
+    const period = { startDate: '2025-01-01', endDate: null };
+    // Flow logged starting the day after — doesn't count since it
+    // doesn't begin at the period's start date.
+    const flowLoggedDates = new Set(['2025-01-02', '2025-01-03']);
+    expect(computePeriodDuration(period, flowLoggedDates, defaultDurationDays)).toBe(defaultDurationDays);
+  });
+});
+
 describe('getDayType priority ordering', () => {
-  const periodStarts = ['2025-01-01'];
-  const periodDurationDays = 5;
+  const periodRanges: PeriodRange[] = [{ startDate: '2025-01-01', durationDays: 5 }];
+  const nextPeriodDurationDays = 5;
   const ovulationDate = parseISODate('2025-01-15');
   const fertileWindow = computeFertileWindow(ovulationDate);
   const nextPeriodDate = parseISODate('2025-01-29');
@@ -133,34 +172,34 @@ describe('getDayType priority ordering', () => {
   it('returns "period" for a day within a logged period', () => {
     const day = parseISODate('2025-01-03');
     expect(
-      getDayType(day, periodStarts, periodDurationDays, fertileWindow, ovulationDate, nextPeriodDate),
+      getDayType(day, periodRanges, fertileWindow, ovulationDate, nextPeriodDate, nextPeriodDurationDays),
     ).toBe('period');
   });
 
   it('returns "ovulation" on the ovulation day itself', () => {
     expect(
-      getDayType(ovulationDate, periodStarts, periodDurationDays, fertileWindow, ovulationDate, nextPeriodDate),
+      getDayType(ovulationDate, periodRanges, fertileWindow, ovulationDate, nextPeriodDate, nextPeriodDurationDays),
     ).toBe('ovulation');
   });
 
   it('returns "fertile" for a day in the fertile window that is not ovulation', () => {
     const day = parseISODate('2025-01-13');
     expect(
-      getDayType(day, periodStarts, periodDurationDays, fertileWindow, ovulationDate, nextPeriodDate),
+      getDayType(day, periodRanges, fertileWindow, ovulationDate, nextPeriodDate, nextPeriodDurationDays),
     ).toBe('fertile');
   });
 
   it('returns "predicted" for a day within the predicted next period', () => {
     const day = parseISODate('2025-01-30');
     expect(
-      getDayType(day, periodStarts, periodDurationDays, fertileWindow, ovulationDate, nextPeriodDate),
+      getDayType(day, periodRanges, fertileWindow, ovulationDate, nextPeriodDate, nextPeriodDurationDays),
     ).toBe('predicted');
   });
 
   it('returns "none" for a day matching nothing', () => {
     const day = parseISODate('2025-01-20');
     expect(
-      getDayType(day, periodStarts, periodDurationDays, fertileWindow, ovulationDate, nextPeriodDate),
+      getDayType(day, periodRanges, fertileWindow, ovulationDate, nextPeriodDate, nextPeriodDurationDays),
     ).toBe('none');
   });
 
@@ -170,7 +209,25 @@ describe('getDayType priority ordering', () => {
     const overlappingFertile = computeFertileWindow(overlappingOvulation);
     const day = parseISODate('2025-01-03');
     expect(
-      getDayType(day, periodStarts, periodDurationDays, overlappingFertile, overlappingOvulation, nextPeriodDate),
+      getDayType(day, periodRanges, overlappingFertile, overlappingOvulation, nextPeriodDate, nextPeriodDurationDays),
+    ).toBe('period');
+  });
+
+  it('respects each period range\'s own duration rather than a single global length', () => {
+    // A short 2-day period followed by a longer 7-day one — each
+    // should paint as its own length, not a shared default.
+    const ranges: PeriodRange[] = [
+      { startDate: '2025-01-01', durationDays: 2 },
+      { startDate: '2025-02-01', durationDays: 7 },
+    ];
+    const day3OfFirstPeriod = parseISODate('2025-01-03'); // past the 2-day range
+    const day6OfSecondPeriod = parseISODate('2025-02-06'); // within the 7-day range
+
+    expect(
+      getDayType(day3OfFirstPeriod, ranges, fertileWindow, ovulationDate, nextPeriodDate, nextPeriodDurationDays),
+    ).not.toBe('period');
+    expect(
+      getDayType(day6OfSecondPeriod, ranges, fertileWindow, ovulationDate, nextPeriodDate, nextPeriodDurationDays),
     ).toBe('period');
   });
 });

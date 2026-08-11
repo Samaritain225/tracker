@@ -125,24 +125,62 @@ export function computeFertileWindow(
   };
 }
 
+export type PeriodRange = {
+  startDate: string;
+  /** Effective length of this specific period, from computePeriodDuration. */
+  durationDays: number;
+};
+
+/**
+ * Determines a single period's effective duration in days, instead of
+ * assuming every period lasted the settings default. Priority:
+ *   1. An explicit `endDate` on the period record (a user override).
+ *   2. Consecutive daily-log entries with a non-null `flow`, starting
+ *      at the period's start date — the real signal the app already
+ *      collects but previously never used for calendar rendering.
+ *   3. The settings-configured default duration, when neither of the
+ *      above is available.
+ */
+export function computePeriodDuration(
+  period: { startDate: string; endDate: string | null },
+  flowLoggedDates: Set<string>,
+  defaultDurationDays: number,
+): number {
+  if (period.endDate) {
+    return daysBetween(parseISODate(period.startDate), parseISODate(period.endDate)) + 1;
+  }
+
+  let days = 0;
+  let cursor = parseISODate(period.startDate);
+  while (flowLoggedDates.has(toISODate(cursor))) {
+    days++;
+    cursor = addDays(cursor, 1);
+  }
+
+  return days > 0 ? days : defaultDurationDays;
+}
+
 /**
  * Determines the display type for a given calendar date.
  * Priority: period > ovulation > fertile > predicted > none.
+ *
+ * Each logged period carries its own effective duration (see
+ * computePeriodDuration/PeriodRange) rather than every period being
+ * painted with the same global setting — a 3-day period and a 7-day
+ * period render as their actual lengths.
  */
 export function getDayType(
   date: Date,
-  periodStartDates: string[],
-  periodDurationDays: number,
+  periodRanges: PeriodRange[],
   fertileWindow: { start: Date; end: Date },
   ovulationDate: Date,
   nextPeriodDate: Date,
+  nextPeriodDurationDays: number,
 ): DayType {
-  const dateIso = toISODate(date);
-
   // Check if date falls within any logged period range
-  for (const startStr of periodStartDates) {
-    const periodStart = parseISODate(startStr);
-    const periodEnd = addDays(periodStart, periodDurationDays - 1);
+  for (const range of periodRanges) {
+    const periodStart = parseISODate(range.startDate);
+    const periodEnd = addDays(periodStart, range.durationDays - 1);
     if (date >= periodStart && date <= periodEnd) {
       return 'period';
     }
@@ -158,8 +196,10 @@ export function getDayType(
     return 'fertile';
   }
 
-  // Check predicted period (next period start + duration)
-  const predictedEnd = addDays(nextPeriodDate, periodDurationDays - 1);
+  // Check predicted period (next period start + duration). The next
+  // period hasn't happened yet, so there's no logged flow data to
+  // derive a duration from — this uses the settings default.
+  const predictedEnd = addDays(nextPeriodDate, nextPeriodDurationDays - 1);
   if (date >= nextPeriodDate && date <= predictedEnd) {
     return 'predicted';
   }

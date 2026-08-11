@@ -105,6 +105,7 @@
     "title": "Détails du jour",
     "period_started": "Les règles ont commencé",
     "flow": "Flux",
+    "flow_spotting": "Spotting",
     "flow_light": "Léger",
     "flow_medium": "Moyen",
     "flow_heavy": "Abondant",

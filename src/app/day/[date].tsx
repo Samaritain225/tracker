@@ -39,7 +39,7 @@ import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { usePeriods } from '@/hooks/use-periods';
 import { formatDisplayDate, parseISODate } from '@/utils/date';
 import { useSettings } from '@/hooks/use-settings';
-import type { DailyLog } from '@/db/schema';
+import type { DailyLog, FlowLevel } from '@/db/schema';
 
 const SYMPTOMS = ['cramps', 'headache', 'bloating', 'acne', 'fatigue'];
 const MOODS = ['happy', 'sensitive', 'sad', 'anxious'];
@@ -120,8 +120,8 @@ function DayDetailsForm({
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
 
   const [isPeriodStart, setIsPeriodStart] = useState(!!initialPeriodId);
-  const [flow, setFlow] = useState<'light' | 'medium' | 'heavy' | null>(
-    (initialLog?.flow as 'light' | 'medium' | 'heavy') ?? null,
+  const [flow, setFlow] = useState<FlowLevel | null>(
+    (initialLog?.flow as FlowLevel) ?? null,
   );
   const [symptoms, setSymptoms] = useState<string[]>(initialLog?.symptoms ?? []);
   const [mood, setMood] = useState<string | null>(initialLog?.mood ?? null);
@@ -140,7 +140,7 @@ function DayDetailsForm({
   const handleFlowChange = useCallback((val: string) => {
     // Tapping the already-active option deselects it, since
     // SegmentedControl always fires onChange with the pressed value.
-    setFlow((prev) => (prev === val ? null : (val as 'light' | 'medium' | 'heavy')));
+    setFlow((prev) => (prev === val ? null : (val as FlowLevel)));
   }, []);
 
   const handleSave = useCallback(async () => {
@@ -219,6 +219,7 @@ function DayDetailsForm({
             <Text style={styles.sectionTitle}>{t('day_details.flow')}</Text>
             <SegmentedControl
               options={[
+                { label: t('day_details.flow_spotting'), value: 'spotting' },
                 { label: t('day_details.flow_light'), value: 'light' },
                 { label: t('day_details.flow_medium'), value: 'medium' },
                 { label: t('day_details.flow_heavy'), value: 'heavy' },

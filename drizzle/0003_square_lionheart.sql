@@ -1,0 +1,1 @@
+ALTER TABLE `periods` ADD `end_date` text;

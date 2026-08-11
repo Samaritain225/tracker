@@ -105,6 +105,7 @@
     "title": "Day Details",
     "period_started": "Period Started",
     "flow": "Flow",
+    "flow_spotting": "Spotting",
     "flow_light": "Light",
     "flow_medium": "Medium",
     "flow_heavy": "Heavy",

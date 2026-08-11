@@ -14,8 +14,9 @@ import { Radii, Spacing, Typography } from '@/constants/theme';
 import type { ThemeColors } from '@/constants/theme';
 import { useTheme } from '@/providers/theme-provider';
 import type { CycleInfo } from '@/hooks/use-cycle-calc';
-import type { DailyLog } from '@/db/schema';
-import { getDayType } from '@/utils/cycle';
+import type { DailyLog, Period } from '@/db/schema';
+import { computePeriodDuration, getDayType } from '@/utils/cycle';
+import type { PeriodRange } from '@/utils/cycle';
 import { formatMonthHeader, isSameDay, parseISODate, toISODate } from '@/utils/date';
 import { CalendarDay } from './calendar-day';
 import type { PeriodPosition } from './calendar-day';
@@ -24,7 +25,7 @@ import { Icon } from '@/components/ui/icon';
 type Props = {
   year: number;
   month: number;
-  periods: string[];
+  periods: Period[];
   cycleInfo: CycleInfo | null;
   dailyLogs?: DailyLog[];
   periodDurationDays: number;
@@ -104,6 +105,21 @@ export function CalendarGrid({
   const defaultOvulation = cycleInfo?.ovulationDay ?? new Date(0);
   const defaultNextPeriod = cycleInfo?.nextPeriod ?? new Date(0);
 
+  // Each period's effective length comes from its own logged flow data
+  // (or an explicit endDate) rather than the single settings default,
+  // so a short period and a long one render as their real lengths.
+  const periodRanges: PeriodRange[] = useMemo(() => {
+    const flowLoggedDates = new Set(
+      dailyLogs.filter((l) => l.flow).map((l) => l.date),
+    );
+    return periods
+      .map((p) => ({
+        startDate: p.startDate,
+        durationDays: computePeriodDuration(p, flowLoggedDates, periodDurationDays),
+      }))
+      .sort((a, b) => a.startDate.localeCompare(b.startDate));
+  }, [periods, dailyLogs, periodDurationDays]);
+
   // Pre-compute day types and period positions for the entire grid
   const dayData = useMemo(() => {
     return calendarDays.map((date) => {
@@ -111,18 +127,18 @@ export function CalendarGrid({
 
       const dayType = getDayType(
         date,
-        periods,
-        periodDurationDays,
+        periodRanges,
         defaultFertileWindow,
         defaultOvulation,
         defaultNextPeriod,
+        periodDurationDays,
       );
       const isoDate = toISODate(date);
       const hasLog = dailyLogs.some((l) => l.date === isoDate);
 
       return { date, dayType, isoDate, hasLog };
     });
-  }, [calendarDays, periods, periodDurationDays, defaultFertileWindow, defaultOvulation, defaultNextPeriod, dailyLogs]);
+  }, [calendarDays, periodRanges, periodDurationDays, defaultFertileWindow, defaultOvulation, defaultNextPeriod, dailyLogs]);
 
   // Compute period positions (first/middle/last/single) for connected range rendering
   const periodPositions = useMemo(() => {

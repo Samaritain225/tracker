@@ -40,7 +40,6 @@ export default function HomeScreen() {
   const cycleInfo = useCycleCalc(periods, settings, todayISO);
 
   const now = parseISODate(todayISO);
-  const periodDates = periods.map((p) => p.startDate);
   const calendarType = settings?.calendarType as 'gregorian' | 'hijri' ?? 'gregorian';
   const language = settings?.language as 'en' | 'fr' ?? 'fr';
   const periodDuration = settings?.periodDurationDays ?? 5;
@@ -86,7 +85,7 @@ export default function HomeScreen() {
         <CalendarGrid
           year={now.getFullYear()}
           month={now.getMonth()}
-          periods={periodDates}
+          periods={periods}
           cycleInfo={cycleInfo}
           dailyLogs={logs}
           periodDurationDays={periodDuration}
