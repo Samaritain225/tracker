@@ -1,6 +1,6 @@
 /**
  * Hook for derived cycle calculations.
- * All computation is memoized and depends on periods + settings.
+ * All computation is memoized and depends on periods + settings + today.
  * Returns everything the UI needs for calendar coloring and metric display.
  */
 
@@ -15,7 +15,7 @@ import {
 } from '@/utils/cycle';
 import { computePhase } from '@/utils/phase';
 import type { PhaseInfo } from '@/utils/phase';
-import { daysBetween } from '@/utils/date';
+import { daysBetween, parseISODate } from '@/utils/date';
 
 export type CycleInfo = {
   cycleLength: number;
@@ -32,6 +32,7 @@ export type CycleInfo = {
 export function useCycleCalc(
   periodList: Period[],
   currentSettings: Settings | null,
+  todayISO: string,
 ): CycleInfo {
   return useMemo(() => {
     const fallback = currentSettings?.fallbackCycleDays ?? 28;
@@ -66,10 +67,10 @@ export function useCycleCalc(
     const nextPeriod = computeNextPeriod(lastPeriod, cycleLength);
     const ovulationDay = computeOvulationDay(lastPeriod, cycleLength);
     const fertileWindow = computeFertileWindow(ovulationDay);
-    const today = new Date();
+    const today = parseISODate(todayISO);
     const daysUntilNextPeriod = daysBetween(today, nextPeriod);
     const daysUntilOvulation = daysBetween(today, ovulationDay);
-    const currentPhase = computePhase(lastPeriod, cycleLength, periodDuration);
+    const currentPhase = computePhase(lastPeriod, cycleLength, periodDuration, today);
 
     return {
       cycleLength,
@@ -82,5 +83,5 @@ export function useCycleCalc(
       daysUntilOvulation,
       currentPhase,
     };
-  }, [periodList, currentSettings]);
+  }, [periodList, currentSettings, todayISO]);
 }

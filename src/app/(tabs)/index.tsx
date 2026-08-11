@@ -22,6 +22,8 @@ import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { usePeriods } from '@/hooks/use-periods';
 import { useSettings } from '@/hooks/use-settings';
 import { useReminders } from '@/hooks/use-reminders';
+import { useToday } from '@/hooks/use-today';
+import { parseISODate } from '@/utils/date';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -32,7 +34,8 @@ export default function HomeScreen() {
   const { logs } = useDailyLogs();
   const { colors } = useTheme();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
-  const cycleInfo = useCycleCalc(periods, settings);
+  const todayISO = useToday();
+  const cycleInfo = useCycleCalc(periods, settings, todayISO);
 
   // Schedule/cancel notifications reactively
   useReminders({
@@ -40,7 +43,7 @@ export default function HomeScreen() {
     cycleInfo,
   });
 
-  const now = new Date();
+  const now = parseISODate(todayISO);
   const periodDates = periods.map((p) => p.startDate);
   const calendarType = settings?.calendarType as 'gregorian' | 'hijri' ?? 'gregorian';
   const language = settings?.language as 'en' | 'fr' ?? 'fr';
@@ -93,6 +96,7 @@ export default function HomeScreen() {
           periodDurationDays={periodDuration}
           calendarType={calendarType}
           language={language}
+          todayISO={todayISO}
           onDayPress={handleDayPress}
         />
       </Animated.View>

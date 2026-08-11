@@ -42,14 +42,18 @@ const PHASE_EMOJI: Record<CyclePhase, string> = {
 /**
  * Computes the current hormonal phase from cycle data.
  * Returns null if no last period is available.
+ *
+ * `today` defaults to `new Date()` but callers that need "today" to stay
+ * fresh across midnight / app backgrounding (see useToday) should pass
+ * it explicitly rather than relying on the default.
  */
 export function computePhase(
   lastPeriodDate: string,
   cycleLength: number,
   periodDurationDays: number,
+  today: Date = new Date(),
 ): PhaseInfo | null {
   const lastPeriod = parseISODate(lastPeriodDate);
-  const today = new Date();
   const dayInCycle = daysBetween(lastPeriod, today) + 1; // 1-based, may exceed cycleLength
 
   const ovulationDay = cycleLength - OVULATION_OFFSET_FROM_END;

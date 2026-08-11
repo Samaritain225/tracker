@@ -16,7 +16,7 @@ import { useTheme } from '@/providers/theme-provider';
 import type { CycleInfo } from '@/hooks/use-cycle-calc';
 import type { DailyLog } from '@/db/schema';
 import { getDayType } from '@/utils/cycle';
-import { formatMonthHeader, isSameDay, toISODate } from '@/utils/date';
+import { formatMonthHeader, isSameDay, parseISODate, toISODate } from '@/utils/date';
 import { CalendarDay } from './calendar-day';
 import type { PeriodPosition } from './calendar-day';
 import { Icon } from '@/components/ui/icon';
@@ -30,6 +30,9 @@ type Props = {
   periodDurationDays: number;
   calendarType: 'gregorian' | 'hijri';
   language: 'en' | 'fr';
+  /** ISO date string for "today", from useToday() — kept fresh across
+   * midnight instead of captured once on mount. */
+  todayISO: string;
   onDayPress: (isoDate: string) => void;
 };
 
@@ -45,6 +48,7 @@ export function CalendarGrid({
   periodDurationDays,
   calendarType,
   language,
+  todayISO,
   onDayPress,
 }: Props) {
   const { colors } = useTheme();
@@ -93,7 +97,7 @@ export function CalendarGrid({
     return days;
   }, [currentYear, currentMonth]);
 
-  const today = useMemo(() => new Date(), []);
+  const today = useMemo(() => parseISODate(todayISO), [todayISO]);
 
   // Default fertile window and ovulation for getDayType
   const defaultFertileWindow = cycleInfo?.fertileWindow ?? { start: new Date(0), end: new Date(0) };
