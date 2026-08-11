@@ -4,12 +4,27 @@
 
 import {
   computeCycleLength,
+  computeCycleVariance,
   computeFertileWindow,
   computeNextPeriod,
   computeOvulationDay,
   getDayType,
 } from './cycle';
-import { parseISODate, toISODate } from './date';
+import { addDays, parseISODate, toISODate } from './date';
+
+/**
+ * Builds a sorted list of ISO period start dates from a starting date
+ * and a sequence of gaps (in days) between consecutive periods.
+ */
+function datesFromGaps(start: string, gaps: number[]): string[] {
+  const dates = [start];
+  let current = parseISODate(start);
+  for (const gap of gaps) {
+    current = addDays(current, gap);
+    dates.push(toISODate(current));
+  }
+  return dates;
+}
 
 describe('computeCycleLength', () => {
   it('returns the fallback when there are 0 dates', () => {
@@ -20,19 +35,65 @@ describe('computeCycleLength', () => {
     expect(computeCycleLength(['2025-01-01'], 30)).toBe(30);
   });
 
-  it('averages a single gap for 2 dates', () => {
+  it('uses the single gap for 2 dates', () => {
     expect(computeCycleLength(['2025-01-01', '2025-01-29'], 28)).toBe(28);
   });
 
-  it('averages multiple gaps, rounding to the nearest integer', () => {
-    // Gaps: 28, 30, 27 -> average 28.33 -> rounds to 28
-    const dates = ['2025-01-01', '2025-01-29', '2025-02-28', '2025-03-27'];
+  it('takes the median of multiple gaps', () => {
+    // Gaps: 28, 30, 27 -> sorted [27, 28, 30] -> median 28
+    const dates = datesFromGaps('2025-01-01', [28, 30, 27]);
     expect(computeCycleLength(dates, 28)).toBe(28);
+  });
+
+  it('averages the two middle gaps for an even-length window', () => {
+    // Gaps: 26, 28, 30, 32 -> sorted [26,28,30,32] -> median (28+30)/2 = 29
+    const dates = datesFromGaps('2025-01-01', [26, 28, 30, 32]);
+    expect(computeCycleLength(dates, 28)).toBe(29);
   });
 
   it('assumes the input is already sorted ascending', () => {
     const dates = ['2025-01-01', '2025-01-31'];
     expect(computeCycleLength(dates, 28)).toBe(30);
+  });
+
+  it('only considers the most recent 6 gaps (RECENT_CYCLE_WINDOW)', () => {
+    // 7 gaps: one very old outlier (90) that would skew the median if
+    // included, followed by 6 consistent 28-day gaps.
+    const dates = datesFromGaps('2025-01-01', [90, 28, 28, 28, 28, 28, 28]);
+    expect(computeCycleLength(dates, 28)).toBe(28);
+  });
+
+  it('is far more robust to a single mistyped date than a plain mean would be', () => {
+    // One wildly wrong gap (3 days) among five normal ones. A mean
+    // would drop the estimate to ~24; the median stays at 28.
+    const dates = datesFromGaps('2025-01-01', [28, 28, 3, 28, 28, 28]);
+    expect(computeCycleLength(dates, 28)).toBe(28);
+  });
+
+  it('falls back to the unfiltered gaps when every recent gap is implausible', () => {
+    // Every gap here is outside [15, 60], so nothing passes the
+    // plausibility filter — the median of the raw gaps is used instead
+    // of silently discarding all the data.
+    const dates = datesFromGaps('2025-01-01', [70, 75, 65]);
+    expect(computeCycleLength(dates, 28)).toBe(70);
+  });
+});
+
+describe('computeCycleVariance', () => {
+  it('returns null when fewer than 2 dates are available', () => {
+    expect(computeCycleVariance([])).toBeNull();
+    expect(computeCycleVariance(['2025-01-01'])).toBeNull();
+  });
+
+  it('returns 0 for perfectly consistent gaps', () => {
+    const dates = datesFromGaps('2025-01-01', [28, 28, 28]);
+    expect(computeCycleVariance(dates)).toBe(0);
+  });
+
+  it('returns the mean absolute deviation from the median', () => {
+    // Gaps: 26, 28, 30 -> median 28 -> deviations 2, 0, 2 -> mean 1.33 -> rounds to 1
+    const dates = datesFromGaps('2025-01-01', [26, 28, 30]);
+    expect(computeCycleVariance(dates)).toBe(1);
   });
 });
 

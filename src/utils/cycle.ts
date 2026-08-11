@@ -7,34 +7,88 @@
 import {
   FERTILE_DAYS_AFTER_OVULATION,
   FERTILE_DAYS_BEFORE_OVULATION,
+  MAX_PLAUSIBLE_CYCLE_GAP_DAYS,
+  MIN_PLAUSIBLE_CYCLE_GAP_DAYS,
   OVULATION_OFFSET_FROM_END,
+  RECENT_CYCLE_WINDOW,
 } from '@/constants/cycle';
 import { addDays, daysBetween, isSameDay, parseISODate, toISODate } from './date';
 
 export type DayType = 'period' | 'ovulation' | 'fertile' | 'predicted' | 'none';
 
 /**
- * Computes the average cycle length from sorted period start dates.
- * Returns the fallback value if fewer than 2 dates are available.
+ * Computes the average cycle length from sorted period start dates,
+ * as the median of the most recent gaps. Returns the fallback value if
+ * fewer than 2 dates are available.
+ *
+ * This is the single source of truth for "average cycle length" —
+ * both the Home prediction and the Insights screen call this (and
+ * computeCycleVariance below) so the two screens never disagree.
  */
 export function computeCycleLength(
   sortedPeriodDates: string[],
   fallback: number,
 ): number {
-  if (sortedPeriodDates.length < 2) {
+  const gaps = recentPlausibleGaps(sortedPeriodDates);
+  if (gaps === null) {
     return fallback;
   }
+  return median(gaps);
+}
 
-  let totalGaps = 0;
-  const gapCount = sortedPeriodDates.length - 1;
+/**
+ * Computes the typical variance (mean absolute deviation from the
+ * median) across the same recent gaps computeCycleLength uses. Returns
+ * null if fewer than 2 dates are available.
+ */
+export function computeCycleVariance(sortedPeriodDates: string[]): number | null {
+  const gaps = recentPlausibleGaps(sortedPeriodDates);
+  if (gaps === null) {
+    return null;
+  }
+  return meanAbsoluteDeviation(gaps, median(gaps));
+}
 
-  for (let i = 0; i < gapCount; i++) {
-    const a = parseISODate(sortedPeriodDates[i]);
-    const b = parseISODate(sortedPeriodDates[i + 1]);
-    totalGaps += daysBetween(a, b);
+/**
+ * Returns the gaps (in days) between the most recent RECENT_CYCLE_WINDOW
+ * consecutive period start dates, preferring only "plausible" gaps
+ * (within MIN/MAX_PLAUSIBLE_CYCLE_GAP_DAYS) as a guard against a single
+ * mistyped date permanently skewing the average. If every recent gap
+ * falls outside that range — e.g. a genuinely very irregular cycle — the
+ * unfiltered set is used rather than discarding the signal entirely.
+ * Returns null when fewer than 2 dates are available.
+ */
+function recentPlausibleGaps(sortedPeriodDates: string[]): number[] | null {
+  if (sortedPeriodDates.length < 2) {
+    return null;
   }
 
-  return Math.round(totalGaps / gapCount);
+  const allGaps: number[] = [];
+  for (let i = 0; i < sortedPeriodDates.length - 1; i++) {
+    const a = parseISODate(sortedPeriodDates[i]);
+    const b = parseISODate(sortedPeriodDates[i + 1]);
+    allGaps.push(daysBetween(a, b));
+  }
+
+  const recent = allGaps.slice(-RECENT_CYCLE_WINDOW);
+  const plausible = recent.filter(
+    (gap) => gap >= MIN_PLAUSIBLE_CYCLE_GAP_DAYS && gap <= MAX_PLAUSIBLE_CYCLE_GAP_DAYS,
+  );
+
+  return plausible.length > 0 ? plausible : recent;
+}
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? Math.round((sorted[mid - 1] + sorted[mid]) / 2)
+    : sorted[mid];
+}
+
+function meanAbsoluteDeviation(values: number[], center: number): number {
+  const deviation = values.reduce((sum, v) => sum + Math.abs(v - center), 0) / values.length;
+  return Math.round(deviation);
 }
 
 /**

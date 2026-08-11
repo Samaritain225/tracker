@@ -18,7 +18,7 @@ import { SymptomHeatmap } from '@/components/insights/symptom-heatmap';
 import { usePeriods } from '@/hooks/use-periods';
 import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { useSettings } from '@/hooks/use-settings';
-import { computeCycleLength } from '@/utils/cycle';
+import { computeCycleLength, computeCycleVariance } from '@/utils/cycle';
 import { daysBetween, parseISODate } from '@/utils/date';
 
 export default function InsightsScreen() {
@@ -41,25 +41,11 @@ export default function InsightsScreen() {
   }, [sortedDates, fallbackCycle]);
 
   // 1. Average Cycle Length & Variance
-  const { avgCycle, variance } = useMemo(() => {
-    if (sortedDates.length < 2) return { avgCycle: null, variance: null };
-
-    const lengths: number[] = [];
-    for (let i = 1; i < sortedDates.length; i++) {
-       const gap = daysBetween(parseISODate(sortedDates[i - 1]), parseISODate(sortedDates[i]));
-       lengths.push(gap);
-    }
-    
-    // Use last 6 cycles at most for relevance
-    const recent = lengths.slice(-6);
-    const avg = Math.round(recent.reduce((a, b) => a + b, 0) / recent.length);
-    
-    // Simple variance (average absolute deviation)
-    const deviation = recent.reduce((sum, val) => sum + Math.abs(val - avg), 0) / recent.length;
-    const roundedVariance = Math.round(deviation);
-
-    return { avgCycle: avg, variance: roundedVariance };
-  }, [sortedDates]);
+  // Delegates to the same computeCycleLength/computeCycleVariance the
+  // Home screen's prediction uses (via useCycleCalc), so this card and
+  // the Home metrics can never disagree.
+  const avgCycle = sortedDates.length >= 2 ? computedCycleLength : null;
+  const variance = useMemo(() => computeCycleVariance(sortedDates), [sortedDates]);
 
   // 2. Average Period Length (using flow data)
   const avgPeriodLength = useMemo(() => {
