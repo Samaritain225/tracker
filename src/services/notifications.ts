@@ -22,9 +22,16 @@ export async function requestNotificationPermissions(): Promise<boolean> {
   return (request as any).granted;
 }
 
+/** Local hour the period reminder fires at, on the reminder day. */
+const PERIOD_REMINDER_HOUR = 9;
+
 /**
- * Schedule a notification 2 days before the predicted next period.
- * Cancels any existing period reminder first.
+ * Schedule a notification at 09:00 local time, 2 days before the
+ * predicted next period. Cancels any existing period reminder first.
+ *
+ * Uses a DATE trigger fixed to that morning rather than a TIME_INTERVAL
+ * countdown in seconds — the latter fires whatever time of day the app
+ * happened to be open when it was scheduled, which could be 2am.
  */
 export async function schedulePeriodReminder(
   nextPeriodDate: Date,
@@ -34,14 +41,12 @@ export async function schedulePeriodReminder(
   // Cancel existing period reminder
   await cancelNotification(PERIOD_REMINDER_ID);
 
-  const now = new Date();
   const reminderDate = new Date(nextPeriodDate);
   reminderDate.setDate(reminderDate.getDate() - 2);
+  reminderDate.setHours(PERIOD_REMINDER_HOUR, 0, 0, 0);
 
   // Don't schedule if the reminder date is already in the past
-  if (reminderDate <= now) return;
-
-  const secondsUntilReminder = Math.floor((reminderDate.getTime() - now.getTime()) / 1000);
+  if (reminderDate <= new Date()) return;
 
   await Notifications.scheduleNotificationAsync({
     identifier: PERIOD_REMINDER_ID,
@@ -51,9 +56,8 @@ export async function schedulePeriodReminder(
       sound: true,
     },
     trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-      seconds: secondsUntilReminder,
-      repeats: false,
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: reminderDate,
     },
   });
 }
@@ -95,10 +99,14 @@ async function cancelNotification(identifier: string): Promise<void> {
 }
 
 /**
- * Cancel all scheduled reminders.
+ * Cancel all reminders this app schedules.
+ * Cancels by identifier rather than calling
+ * cancelAllScheduledNotificationsAsync(), which would wipe out any
+ * other scheduled notification on the device too, not just this app's.
  */
 export async function cancelAllReminders(): Promise<void> {
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  await cancelNotification(PERIOD_REMINDER_ID);
+  await cancelNotification(DAILY_LOG_ID);
 }
 
 /**

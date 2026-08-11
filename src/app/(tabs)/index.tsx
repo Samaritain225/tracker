@@ -21,7 +21,6 @@ import { useCycleCalc } from '@/hooks/use-cycle-calc';
 import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { usePeriods } from '@/hooks/use-periods';
 import { useSettings } from '@/hooks/use-settings';
-import { useReminders } from '@/hooks/use-reminders';
 import { useToday } from '@/hooks/use-today';
 import { parseISODate } from '@/utils/date';
 
@@ -35,13 +34,10 @@ export default function HomeScreen() {
   const { colors } = useTheme();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const todayISO = useToday();
+  // Reminder scheduling itself lives in RemindersProvider (mounted at
+  // the app root) so it stays in sync without requiring a visit to this
+  // screen — see providers/reminders-provider.tsx.
   const cycleInfo = useCycleCalc(periods, settings, todayISO);
-
-  // Schedule/cancel notifications reactively
-  useReminders({
-    remindersEnabled: !!settings?.remindersEnabled,
-    cycleInfo,
-  });
 
   const now = parseISODate(todayISO);
   const periodDates = periods.map((p) => p.startDate);
