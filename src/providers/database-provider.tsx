@@ -11,6 +11,7 @@ import { View } from 'react-native';
 
 import { LoadingScreen } from '@/components/ui/loading-screen';
 import { db } from '@/db/client';
+import { settings } from '@/db/schema';
 import migrations from '../../drizzle/migrations';
 
 SplashScreen.preventAutoHideAsync();
@@ -45,16 +46,21 @@ export function DatabaseProvider({ children }: Props) {
 }
 
 /**
- * Seeds the settings table with default values if no row exists.
- * Uses INSERT OR IGNORE to avoid duplicates on subsequent launches.
+ * Seeds the settings table with a single default row if none exists.
+ * Uses ON CONFLICT DO NOTHING (INSERT OR IGNORE) to stay a no-op on
+ * subsequent launches. Only `id` is supplied explicitly — every other
+ * column's value comes from the schema's own SQL-level DEFAULT clause
+ * (see src/db/schema.ts), so there is exactly one source of truth for
+ * defaults instead of a second copy that can drift out of sync.
+ *
+ * Goes through the shared Drizzle client rather than opening a second
+ * raw expo-sqlite handle, so id is inserted as the text '1' that
+ * useSettings queries for, not an integer relying on SQLite's TEXT
+ * column affinity to coerce it.
  */
 async function seedSettings(): Promise<void> {
   try {
-    const expoDb = require('expo-sqlite').openDatabaseSync('cycle.db');
-    expoDb.runSync(
-      `INSERT OR IGNORE INTO settings (id, language, calendar_type, fallback_cycle_days, period_duration_days, theme, app_lock_enabled, reminders_enabled)
-       VALUES (1, 'fr', 'gregorian', 28, 4, 'system', 0, 0)`,
-    );
+    await db.insert(settings).values({ id: '1' }).onConflictDoNothing();
   } catch (e) {
     console.error('Failed to seed settings:', e);
   }
