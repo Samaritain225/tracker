@@ -12,7 +12,7 @@ import {
   OVULATION_OFFSET_FROM_END,
   RECENT_CYCLE_WINDOW,
 } from '@/constants/cycle';
-import { addDays, daysBetween, isSameDay, parseISODate, toISODate } from './date';
+import { addDays, daysBetween, parseISODate, toISODate } from './date';
 
 export type DayType = 'period' | 'ovulation' | 'fertile' | 'predicted' | 'none';
 
@@ -125,12 +125,6 @@ export function computeFertileWindow(
   };
 }
 
-export type PeriodRange = {
-  startDate: string;
-  /** Effective length of this specific period, from computePeriodDuration. */
-  durationDays: number;
-};
-
 /**
  * Determines a single period's effective duration in days, instead of
  * assuming every period lasted the settings default. Priority:
@@ -161,47 +155,140 @@ export function computePeriodDuration(
 }
 
 /**
- * Determines the display type for a given calendar date.
- * Priority: period > ovulation > fertile > predicted > none.
- *
- * Each logged period carries its own effective duration (see
- * computePeriodDuration/PeriodRange) rather than every period being
- * painted with the same global setting — a 3-day period and a 7-day
- * period render as their actual lengths.
+ * One menstrual cycle's worth of dates — either a logged historical
+ * cycle or a projected future one. All dates are ISO strings so
+ * comparisons in getDayType stay simple string comparisons.
  */
-export function getDayType(
-  date: Date,
-  periodRanges: PeriodRange[],
-  fertileWindow: { start: Date; end: Date },
-  ovulationDate: Date,
-  nextPeriodDate: Date,
-  nextPeriodDurationDays: number,
-): DayType {
-  // Check if date falls within any logged period range
-  for (const range of periodRanges) {
-    const periodStart = parseISODate(range.startDate);
-    const periodEnd = addDays(periodStart, range.durationDays - 1);
-    if (date >= periodStart && date <= periodEnd) {
+export type CycleWindow = {
+  /** Period start date. Always a real logged date, even for the
+   * "current, in-progress" cycle — only future cycles project this. */
+  start: string;
+  /** Period end date (start + effective duration - 1). */
+  end: string;
+  ovulation: string;
+  fertileStart: string;
+  fertileEnd: string;
+  /** False for a cycle whose period was actually logged (even if its
+   * ovulation/fertile window is still an estimate); true for a cycle
+   * projected entirely from the average cycle length. */
+  isPrediction: boolean;
+};
+
+/** How far forward to project future cycles, in days (~1 year). */
+const PROJECTION_HORIZON_DAYS = 370;
+/** Hard cap on projected cycles regardless of cycle length, as a
+ * defensive bound rather than a realistic expectation. */
+const MAX_PROJECTED_CYCLES = 24;
+
+/**
+ * Builds the full series of cycle windows: one per logged period
+ * (using each period's own gap to the next logged period where known,
+ * so historical ovulation estimates use the real cycle length rather
+ * than today's average), followed by projected future cycles spaced by
+ * the average cycle length, far enough out to cover roughly a year.
+ *
+ * Returns an empty array when no periods are logged — there's nothing
+ * to build a series from.
+ */
+export function buildCycleWindows(
+  sortedPeriods: { startDate: string; endDate: string | null }[],
+  flowLoggedDates: Set<string>,
+  averageCycleLength: number,
+  defaultPeriodDurationDays: number,
+): CycleWindow[] {
+  if (sortedPeriods.length === 0) {
+    return [];
+  }
+
+  const windows: CycleWindow[] = [];
+
+  for (let i = 0; i < sortedPeriods.length; i++) {
+    const period = sortedPeriods[i];
+    const duration = computePeriodDuration(period, flowLoggedDates, defaultPeriodDurationDays);
+    const end = toISODate(addDays(parseISODate(period.startDate), duration - 1));
+
+    // Use the real gap to the next logged period when there is one —
+    // that historical cycle's ovulation estimate is then based on what
+    // actually happened, not the current best-guess average. The most
+    // recent (still "open") cycle has no next period yet, so it falls
+    // back to the average like a prediction would.
+    const next = sortedPeriods[i + 1];
+    const cycleLengthForThisWindow = next
+      ? daysBetween(parseISODate(period.startDate), parseISODate(next.startDate))
+      : averageCycleLength;
+
+    const ovulationDate = computeOvulationDay(period.startDate, cycleLengthForThisWindow);
+    const fertile = computeFertileWindow(ovulationDate);
+
+    windows.push({
+      start: period.startDate,
+      end,
+      ovulation: toISODate(ovulationDate),
+      fertileStart: toISODate(fertile.start),
+      fertileEnd: toISODate(fertile.end),
+      isPrediction: false,
+    });
+  }
+
+  const lastPeriod = sortedPeriods[sortedPeriods.length - 1];
+  const projectionCount = Math.min(
+    MAX_PROJECTED_CYCLES,
+    Math.max(1, Math.ceil(PROJECTION_HORIZON_DAYS / Math.max(averageCycleLength, 1))),
+  );
+
+  let cursor = parseISODate(lastPeriod.startDate);
+  for (let i = 0; i < projectionCount; i++) {
+    cursor = addDays(cursor, averageCycleLength);
+    const startISO = toISODate(cursor);
+    const end = toISODate(addDays(cursor, defaultPeriodDurationDays - 1));
+    const ovulationDate = computeOvulationDay(startISO, averageCycleLength);
+    const fertile = computeFertileWindow(ovulationDate);
+
+    windows.push({
+      start: startISO,
+      end,
+      ovulation: toISODate(ovulationDate),
+      fertileStart: toISODate(fertile.start),
+      fertileEnd: toISODate(fertile.end),
+      isPrediction: true,
+    });
+  }
+
+  return windows;
+}
+
+/**
+ * Determines the display type for a given calendar date against the
+ * full cycle series, not just the current month's prediction — so
+ * navigating the calendar forward or backward still shows fertile
+ * windows and predictions instead of going blank.
+ * Priority: period > ovulation > fertile > predicted > none.
+ */
+export function getDayType(date: Date, cycles: CycleWindow[]): DayType {
+  const dateIso = toISODate(date);
+
+  for (const cycle of cycles) {
+    if (!cycle.isPrediction && dateIso >= cycle.start && dateIso <= cycle.end) {
       return 'period';
     }
   }
 
-  // Check ovulation
-  if (isSameDay(date, ovulationDate)) {
-    return 'ovulation';
+  for (const cycle of cycles) {
+    if (dateIso === cycle.ovulation) {
+      return 'ovulation';
+    }
   }
 
-  // Check fertile window
-  if (date >= fertileWindow.start && date <= fertileWindow.end) {
-    return 'fertile';
+  for (const cycle of cycles) {
+    if (dateIso >= cycle.fertileStart && dateIso <= cycle.fertileEnd) {
+      return 'fertile';
+    }
   }
 
-  // Check predicted period (next period start + duration). The next
-  // period hasn't happened yet, so there's no logged flow data to
-  // derive a duration from — this uses the settings default.
-  const predictedEnd = addDays(nextPeriodDate, nextPeriodDurationDays - 1);
-  if (date >= nextPeriodDate && date <= predictedEnd) {
-    return 'predicted';
+  for (const cycle of cycles) {
+    if (cycle.isPrediction && dateIso >= cycle.start && dateIso <= cycle.end) {
+      return 'predicted';
+    }
   }
 
   return 'none';

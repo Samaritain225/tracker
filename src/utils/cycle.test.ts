@@ -3,6 +3,7 @@
  */
 
 import {
+  buildCycleWindows,
   computeCycleLength,
   computeCycleVariance,
   computeFertileWindow,
@@ -11,7 +12,7 @@ import {
   computePeriodDuration,
   getDayType,
 } from './cycle';
-import type { PeriodRange } from './cycle';
+import type { CycleWindow } from './cycle';
 import { addDays, parseISODate, toISODate } from './date';
 
 /**
@@ -163,71 +164,140 @@ describe('computePeriodDuration', () => {
 });
 
 describe('getDayType priority ordering', () => {
-  const periodRanges: PeriodRange[] = [{ startDate: '2025-01-01', durationDays: 5 }];
-  const nextPeriodDurationDays = 5;
-  const ovulationDate = parseISODate('2025-01-15');
-  const fertileWindow = computeFertileWindow(ovulationDate);
-  const nextPeriodDate = parseISODate('2025-01-29');
+  // A logged period (01-01 to 01-05) whose cycle is expected to ovulate
+  // on 01-15, plus a predicted next period (01-29 to 02-02) with its
+  // own, deliberately non-overlapping, ovulation/fertile estimate.
+  const cycles: CycleWindow[] = [
+    {
+      start: '2025-01-01',
+      end: '2025-01-05',
+      ovulation: '2025-01-15',
+      fertileStart: '2025-01-12',
+      fertileEnd: '2025-01-19',
+      isPrediction: false,
+    },
+    {
+      start: '2025-01-29',
+      end: '2025-02-02',
+      ovulation: '2025-02-12',
+      fertileStart: '2025-02-09',
+      fertileEnd: '2025-02-16',
+      isPrediction: true,
+    },
+  ];
 
   it('returns "period" for a day within a logged period', () => {
     const day = parseISODate('2025-01-03');
-    expect(
-      getDayType(day, periodRanges, fertileWindow, ovulationDate, nextPeriodDate, nextPeriodDurationDays),
-    ).toBe('period');
+    expect(getDayType(day, cycles)).toBe('period');
   });
 
   it('returns "ovulation" on the ovulation day itself', () => {
-    expect(
-      getDayType(ovulationDate, periodRanges, fertileWindow, ovulationDate, nextPeriodDate, nextPeriodDurationDays),
-    ).toBe('ovulation');
+    const day = parseISODate('2025-01-15');
+    expect(getDayType(day, cycles)).toBe('ovulation');
   });
 
   it('returns "fertile" for a day in the fertile window that is not ovulation', () => {
     const day = parseISODate('2025-01-13');
-    expect(
-      getDayType(day, periodRanges, fertileWindow, ovulationDate, nextPeriodDate, nextPeriodDurationDays),
-    ).toBe('fertile');
+    expect(getDayType(day, cycles)).toBe('fertile');
   });
 
-  it('returns "predicted" for a day within the predicted next period', () => {
+  it('returns "predicted" for a day within a predicted (not-yet-logged) period', () => {
     const day = parseISODate('2025-01-30');
-    expect(
-      getDayType(day, periodRanges, fertileWindow, ovulationDate, nextPeriodDate, nextPeriodDurationDays),
-    ).toBe('predicted');
+    expect(getDayType(day, cycles)).toBe('predicted');
   });
 
   it('returns "none" for a day matching nothing', () => {
     const day = parseISODate('2025-01-20');
-    expect(
-      getDayType(day, periodRanges, fertileWindow, ovulationDate, nextPeriodDate, nextPeriodDurationDays),
-    ).toBe('none');
+    expect(getDayType(day, cycles)).toBe('none');
   });
 
   it('prioritizes "period" over an overlapping ovulation/fertile day', () => {
-    // Construct a case where the ovulation date falls inside a logged period range.
-    const overlappingOvulation = parseISODate('2025-01-03');
-    const overlappingFertile = computeFertileWindow(overlappingOvulation);
+    // Construct a case where the ovulation date falls inside the
+    // logged period range.
+    const overlapping: CycleWindow[] = [
+      {
+        start: '2025-01-01',
+        end: '2025-01-05',
+        ovulation: '2025-01-03',
+        fertileStart: '2025-01-01',
+        fertileEnd: '2025-01-05',
+        isPrediction: false,
+      },
+    ];
     const day = parseISODate('2025-01-03');
-    expect(
-      getDayType(day, periodRanges, overlappingFertile, overlappingOvulation, nextPeriodDate, nextPeriodDurationDays),
-    ).toBe('period');
+    expect(getDayType(day, overlapping)).toBe('period');
   });
 
-  it('respects each period range\'s own duration rather than a single global length', () => {
+  it('respects each cycle\'s own period length rather than a single global length', () => {
     // A short 2-day period followed by a longer 7-day one — each
     // should paint as its own length, not a shared default.
-    const ranges: PeriodRange[] = [
-      { startDate: '2025-01-01', durationDays: 2 },
-      { startDate: '2025-02-01', durationDays: 7 },
+    const mixedLengthCycles: CycleWindow[] = [
+      { start: '2025-01-01', end: '2025-01-02', ovulation: '1970-01-01', fertileStart: '1970-01-01', fertileEnd: '1970-01-01', isPrediction: false },
+      { start: '2025-02-01', end: '2025-02-07', ovulation: '1970-01-01', fertileStart: '1970-01-01', fertileEnd: '1970-01-01', isPrediction: false },
     ];
     const day3OfFirstPeriod = parseISODate('2025-01-03'); // past the 2-day range
     const day6OfSecondPeriod = parseISODate('2025-02-06'); // within the 7-day range
 
-    expect(
-      getDayType(day3OfFirstPeriod, ranges, fertileWindow, ovulationDate, nextPeriodDate, nextPeriodDurationDays),
-    ).not.toBe('period');
-    expect(
-      getDayType(day6OfSecondPeriod, ranges, fertileWindow, ovulationDate, nextPeriodDate, nextPeriodDurationDays),
-    ).toBe('period');
+    expect(getDayType(day3OfFirstPeriod, mixedLengthCycles)).not.toBe('period');
+    expect(getDayType(day6OfSecondPeriod, mixedLengthCycles)).toBe('period');
+  });
+
+  it('does not paint a predicted cycle as "period" even within its date range', () => {
+    const day = parseISODate('2025-01-30'); // within the predicted cycle's range
+    expect(getDayType(day, cycles)).not.toBe('period');
+  });
+});
+
+describe('buildCycleWindows', () => {
+  const defaultPeriodDurationDays = 5;
+
+  it('returns an empty array when there are no logged periods', () => {
+    expect(buildCycleWindows([], new Set(), 28, defaultPeriodDurationDays)).toEqual([]);
+  });
+
+  it('builds one non-prediction window per logged period plus projected future windows', () => {
+    const periods = [
+      { startDate: '2025-01-01', endDate: null },
+      { startDate: '2025-01-29', endDate: null },
+    ];
+    const windows = buildCycleWindows(periods, new Set(), 28, defaultPeriodDurationDays);
+
+    const logged = windows.filter((w) => !w.isPrediction);
+    const projected = windows.filter((w) => w.isPrediction);
+
+    expect(logged).toHaveLength(2);
+    expect(logged[0].start).toBe('2025-01-01');
+    expect(logged[1].start).toBe('2025-01-29');
+    // At a 28-day cycle length, ~370 days of projection is at least 13 cycles.
+    expect(projected.length).toBeGreaterThanOrEqual(13);
+    // Projection continues chronologically from the last logged period.
+    expect(projected[0].start).toBe(toISODate(addDays(parseISODate('2025-01-29'), 28)));
+  });
+
+  it('uses the real gap to the next logged period for a historical cycle\'s ovulation estimate', () => {
+    // Actual gap here is 30 days, not the 28-day average — the first
+    // window's ovulation should reflect the real 30-day cycle.
+    const periods = [
+      { startDate: '2025-01-01', endDate: null },
+      { startDate: '2025-01-31', endDate: null }, // 30 days later
+    ];
+    const windows = buildCycleWindows(periods, new Set(), 28, defaultPeriodDurationDays);
+    const expectedOvulation = toISODate(computeOvulationDay('2025-01-01', 30));
+    expect(windows[0].ovulation).toBe(expectedOvulation);
+  });
+
+  it('uses the average cycle length for the most recent (still-open) logged cycle', () => {
+    const periods = [
+      { startDate: '2025-01-01', endDate: null },
+    ];
+    const windows = buildCycleWindows(periods, new Set(), 28, defaultPeriodDurationDays);
+    const expectedOvulation = toISODate(computeOvulationDay('2025-01-01', 28));
+    expect(windows[0].ovulation).toBe(expectedOvulation);
+  });
+
+  it('derives each logged window\'s duration via computePeriodDuration', () => {
+    const periods = [{ startDate: '2025-01-01', endDate: '2025-01-03' }];
+    const windows = buildCycleWindows(periods, new Set(), 28, defaultPeriodDurationDays);
+    expect(windows[0].end).toBe('2025-01-03');
   });
 });

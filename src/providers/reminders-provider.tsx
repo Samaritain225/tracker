@@ -12,6 +12,7 @@
 import React from 'react';
 
 import { useCycleCalc } from '@/hooks/use-cycle-calc';
+import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { usePeriods } from '@/hooks/use-periods';
 import { useReminders } from '@/hooks/use-reminders';
 import { useSettings } from '@/hooks/use-settings';
@@ -23,9 +24,10 @@ type Props = {
 
 export function RemindersProvider({ children }: Props) {
   const { periods } = usePeriods();
+  const { logs } = useDailyLogs();
   const { settings } = useSettings();
   const todayISO = useToday();
-  const cycleInfo = useCycleCalc(periods, settings, todayISO);
+  const cycleInfo = useCycleCalc(periods, logs, settings, todayISO);
 
   useReminders({
     remindersEnabled: !!settings?.remindersEnabled,

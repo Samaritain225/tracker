@@ -37,12 +37,11 @@ export default function HomeScreen() {
   // Reminder scheduling itself lives in RemindersProvider (mounted at
   // the app root) so it stays in sync without requiring a visit to this
   // screen — see providers/reminders-provider.tsx.
-  const cycleInfo = useCycleCalc(periods, settings, todayISO);
+  const cycleInfo = useCycleCalc(periods, logs, settings, todayISO);
 
   const now = parseISODate(todayISO);
   const calendarType = settings?.calendarType as 'gregorian' | 'hijri' ?? 'gregorian';
   const language = settings?.language as 'en' | 'fr' ?? 'fr';
-  const periodDuration = settings?.periodDurationDays ?? 5;
 
   const handleDayPress = useCallback(
     (isoDate: string) => {
@@ -85,10 +84,8 @@ export default function HomeScreen() {
         <CalendarGrid
           year={now.getFullYear()}
           month={now.getMonth()}
-          periods={periods}
           cycleInfo={cycleInfo}
           dailyLogs={logs}
-          periodDurationDays={periodDuration}
           calendarType={calendarType}
           language={language}
           todayISO={todayISO}

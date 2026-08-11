@@ -14,9 +14,8 @@ import { Radii, Spacing, Typography } from '@/constants/theme';
 import type { ThemeColors } from '@/constants/theme';
 import { useTheme } from '@/providers/theme-provider';
 import type { CycleInfo } from '@/hooks/use-cycle-calc';
-import type { DailyLog, Period } from '@/db/schema';
-import { computePeriodDuration, getDayType } from '@/utils/cycle';
-import type { PeriodRange } from '@/utils/cycle';
+import type { DailyLog } from '@/db/schema';
+import { getDayType } from '@/utils/cycle';
 import { formatMonthHeader, isSameDay, parseISODate, toISODate } from '@/utils/date';
 import { CalendarDay } from './calendar-day';
 import type { PeriodPosition } from './calendar-day';
@@ -25,10 +24,11 @@ import { Icon } from '@/components/ui/icon';
 type Props = {
   year: number;
   month: number;
-  periods: Period[];
+  /** Full past+future cycle series (getDayType resolves against this
+   * directly, so the calendar stays correct in any month, not just the
+   * one closest to today). */
   cycleInfo: CycleInfo | null;
   dailyLogs?: DailyLog[];
-  periodDurationDays: number;
   calendarType: 'gregorian' | 'hijri';
   language: 'en' | 'fr';
   /** ISO date string for "today", from useToday() — kept fresh across
@@ -43,10 +43,8 @@ const WEEKDAY_KEYS_FR = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 export function CalendarGrid({
   year,
   month,
-  periods,
   cycleInfo,
   dailyLogs = [],
-  periodDurationDays,
   calendarType,
   language,
   todayISO,
@@ -100,45 +98,20 @@ export function CalendarGrid({
 
   const today = useMemo(() => parseISODate(todayISO), [todayISO]);
 
-  // Default fertile window and ovulation for getDayType
-  const defaultFertileWindow = cycleInfo?.fertileWindow ?? { start: new Date(0), end: new Date(0) };
-  const defaultOvulation = cycleInfo?.ovulationDay ?? new Date(0);
-  const defaultNextPeriod = cycleInfo?.nextPeriod ?? new Date(0);
-
-  // Each period's effective length comes from its own logged flow data
-  // (or an explicit endDate) rather than the single settings default,
-  // so a short period and a long one render as their real lengths.
-  const periodRanges: PeriodRange[] = useMemo(() => {
-    const flowLoggedDates = new Set(
-      dailyLogs.filter((l) => l.flow).map((l) => l.date),
-    );
-    return periods
-      .map((p) => ({
-        startDate: p.startDate,
-        durationDays: computePeriodDuration(p, flowLoggedDates, periodDurationDays),
-      }))
-      .sort((a, b) => a.startDate.localeCompare(b.startDate));
-  }, [periods, dailyLogs, periodDurationDays]);
+  const cycles = cycleInfo?.cycles ?? [];
 
   // Pre-compute day types and period positions for the entire grid
   const dayData = useMemo(() => {
     return calendarDays.map((date) => {
       if (!date) return null;
 
-      const dayType = getDayType(
-        date,
-        periodRanges,
-        defaultFertileWindow,
-        defaultOvulation,
-        defaultNextPeriod,
-        periodDurationDays,
-      );
+      const dayType = getDayType(date, cycles);
       const isoDate = toISODate(date);
       const hasLog = dailyLogs.some((l) => l.date === isoDate);
 
       return { date, dayType, isoDate, hasLog };
     });
-  }, [calendarDays, periodRanges, periodDurationDays, defaultFertileWindow, defaultOvulation, defaultNextPeriod, dailyLogs]);
+  }, [calendarDays, cycles, dailyLogs]);
 
   // Compute period positions (first/middle/last/single) for connected range rendering
   const periodPositions = useMemo(() => {
