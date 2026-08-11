@@ -23,17 +23,22 @@ export function PhaseBanner({ phaseInfo }: Props) {
 
   const progress = Math.min(phaseInfo.dayInPhase / Math.max(phaseInfo.totalPhaseDays, 1), 1);
   const phaseName = t(`phase.${phaseInfo.phase}`);
-  const tip = t(`phase.${phaseInfo.phase}_tip`);
+  const tip = phaseInfo.isLate ? t('phase.late_tip') : t(`phase.${phaseInfo.phase}_tip`);
 
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
-        <Text style={styles.emoji}>{phaseInfo.emoji}</Text>
+        <Text style={styles.emoji}>{phaseInfo.isLate ? '⏰' : phaseInfo.emoji}</Text>
         <View style={styles.textBlock}>
           <Text style={styles.phaseName}>{phaseName}</Text>
           <Text style={styles.dayLabel}>
             {t('phase.day_of', { day: phaseInfo.dayInCycle })}
           </Text>
+          {phaseInfo.isLate && (
+            <Text style={styles.lateLabel}>
+              {t('phase.days_late', { count: phaseInfo.daysLate })}
+            </Text>
+          )}
         </View>
       </View>
 
@@ -78,6 +83,12 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: Typography.sizes.sm,
     color: colors.textSecondary,
     fontVariant: ['tabular-nums'],
+  },
+  lateLabel: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold,
+    color: colors.danger,
+    marginTop: 2,
   },
   progressTrack: {
     height: 6,

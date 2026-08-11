@@ -8,6 +8,10 @@
  *   Follicular — End of period → ovulation - 2
  *   Ovulatory  — Ovulation ± 1 day
  *   Luteal     — Post-ovulatory → next period
+ *
+ * When today is past the expected cycle length with no new period
+ * logged, the phase holds at luteal instead of wrapping into a phantom
+ * new cycle — see `isLate` / `daysLate` below.
  */
 
 import { OVULATION_OFFSET_FROM_END } from '@/constants/cycle';
@@ -19,8 +23,13 @@ export type PhaseInfo = {
   phase: CyclePhase;
   dayInPhase: number;
   totalPhaseDays: number;
+  /** True cycle day, not wrapped — can exceed cycleLength when late. */
   dayInCycle: number;
   emoji: string;
+  /** True once dayInCycle has passed cycleLength with no new period logged. */
+  isLate: boolean;
+  /** 0 when not late, otherwise dayInCycle - cycleLength. */
+  daysLate: number;
 };
 
 const PHASE_EMOJI: Record<CyclePhase, string> = {
@@ -41,11 +50,7 @@ export function computePhase(
 ): PhaseInfo | null {
   const lastPeriod = parseISODate(lastPeriodDate);
   const today = new Date();
-  const dayInCycle = daysBetween(lastPeriod, today) + 1; // 1-based
-
-  // If we've passed the cycle length, the user hasn't logged a new period yet.
-  // Wrap around to show where they'd be in a new cycle.
-  const effectiveDay = ((dayInCycle - 1) % cycleLength) + 1;
+  const dayInCycle = daysBetween(lastPeriod, today) + 1; // 1-based, may exceed cycleLength
 
   const ovulationDay = cycleLength - OVULATION_OFFSET_FROM_END;
 
@@ -54,25 +59,36 @@ export function computePhase(
   const ovulationStart = ovulationDay - 1;
   const ovulationEnd = ovulationDay + 1;
 
+  const isLate = dayInCycle > cycleLength;
+  const daysLate = isLate ? dayInCycle - cycleLength : 0;
+
   let phase: CyclePhase;
   let dayInPhase: number;
   let totalPhaseDays: number;
 
-  if (effectiveDay <= menstrualEnd) {
+  if (isLate) {
+    // Past the expected cycle length with no new period logged yet.
+    // The most useful thing to communicate here is "how late", not a
+    // fabricated new cycle — hold at luteal, the phase that precedes
+    // the next period.
+    phase = 'luteal';
+    dayInPhase = dayInCycle - ovulationEnd;
+    totalPhaseDays = cycleLength - ovulationEnd;
+  } else if (dayInCycle <= menstrualEnd) {
     phase = 'menstrual';
-    dayInPhase = effectiveDay;
+    dayInPhase = dayInCycle;
     totalPhaseDays = menstrualEnd;
-  } else if (effectiveDay < ovulationStart) {
+  } else if (dayInCycle < ovulationStart) {
     phase = 'follicular';
-    dayInPhase = effectiveDay - menstrualEnd;
+    dayInPhase = dayInCycle - menstrualEnd;
     totalPhaseDays = ovulationStart - menstrualEnd - 1;
-  } else if (effectiveDay <= ovulationEnd) {
+  } else if (dayInCycle <= ovulationEnd) {
     phase = 'ovulatory';
-    dayInPhase = effectiveDay - ovulationStart + 1;
+    dayInPhase = dayInCycle - ovulationStart + 1;
     totalPhaseDays = ovulationEnd - ovulationStart + 1;
   } else {
     phase = 'luteal';
-    dayInPhase = effectiveDay - ovulationEnd;
+    dayInPhase = dayInCycle - ovulationEnd;
     totalPhaseDays = cycleLength - ovulationEnd;
   }
 
@@ -80,7 +96,9 @@ export function computePhase(
     phase,
     dayInPhase,
     totalPhaseDays,
-    dayInCycle: effectiveDay,
+    dayInCycle,
     emoji: PHASE_EMOJI[phase],
+    isLate,
+    daysLate,
   };
 }

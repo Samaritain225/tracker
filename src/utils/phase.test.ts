@@ -122,24 +122,19 @@ describe('computePhase — long cycle (40 days)', () => {
 
 describe('computePhase — late period (regression target for fix 2c)', () => {
   // The last period started 34 days ago, so today is day 35 of a
-  // 28-day cycle — 7 days past when the next period was due. The
-  // CURRENT implementation wraps via modulo and incorrectly reports
-  // this as day 7 of a brand-new cycle (follicular). The fix in plan
-  // item 2c must instead hold the phase at 'luteal' and surface how late
-  // the period is via new `isLate` / `daysLate` fields on PhaseInfo.
-  //
-  // This test is written against the POST-FIX contract and is expected
-  // to fail until 2c lands — that is intentional, not a mistake. The
-  // `as any` cast below is temporary scaffolding for fields that don't
-  // exist on PhaseInfo yet; remove it once 2c adds them to the type.
+  // 28-day cycle — 7 days past when the next period was due. Before
+  // fix 2c, computePhase wrapped via modulo and incorrectly reported
+  // this as day 7 of a brand-new cycle (follicular). It now holds the
+  // phase at 'luteal' and surfaces how late the period is via `isLate`
+  // / `daysLate` on PhaseInfo.
   const cycleLength = 28;
   const periodDurationDays = 5;
 
   it('does not restart the cycle when 7 days late', () => {
-    const info = computePhase(lastPeriodNDaysAgo(34), cycleLength, periodDurationDays) as any;
-    expect(info.phase).toBe('luteal');
-    expect(info.dayInCycle).toBe(35);
-    expect(info.isLate).toBe(true);
-    expect(info.daysLate).toBe(7);
+    const info = computePhase(lastPeriodNDaysAgo(34), cycleLength, periodDurationDays);
+    expect(info?.phase).toBe('luteal');
+    expect(info?.dayInCycle).toBe(35);
+    expect(info?.isLate).toBe(true);
+    expect(info?.daysLate).toBe(7);
   });
 });

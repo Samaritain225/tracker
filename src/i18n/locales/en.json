@@ -72,10 +72,12 @@
     "ovulatory": "Ovulatory Phase",
     "luteal": "Luteal Phase",
     "day_of": "Day {{day}} of your cycle",
+    "days_late": "{{count}} days late",
     "menstrual_tip": "Rest and recovery — listen to your body",
     "follicular_tip": "Rising energy — great time for new projects",
     "ovulatory_tip": "Peak energy — ideal for social events & workouts",
-    "luteal_tip": "Wind down — focus on self-care & gentle movement"
+    "luteal_tip": "Wind down — focus on self-care & gentle movement",
+    "late_tip": "Your period hasn't started yet. A short delay is normal, but log it if it continues."
   },
   "insights": {
     "title": "Insights",

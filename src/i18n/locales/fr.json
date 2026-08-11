@@ -72,10 +72,12 @@
     "ovulatory": "Phase ovulatoire",
     "luteal": "Phase lutéale",
     "day_of": "Jour {{day}} de votre cycle",
+    "days_late": "{{count}} jours de retard",
     "menstrual_tip": "Repos et récupération — écoutez votre corps",
     "follicular_tip": "Énergie montante — idéal pour de nouveaux projets",
     "ovulatory_tip": "Énergie maximale — parfait pour le sport et les sorties",
-    "luteal_tip": "Ralentissez — concentrez-vous sur le bien-être"
+    "luteal_tip": "Ralentissez — concentrez-vous sur le bien-être",
+    "late_tip": "Vos règles n'ont pas encore commencé. Un léger retard est normal, mais notez-le si cela persiste."
   },
   "insights": {
     "title": "Analyses",
