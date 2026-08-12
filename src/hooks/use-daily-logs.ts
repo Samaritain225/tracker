@@ -8,6 +8,7 @@ import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
 import { useCallback, useState } from 'react';
 
 import { db } from '@/db/client';
+import { isQueryLoading } from '@/utils/query';
 import { dailyLogs } from '@/db/schema';
 import type { DailyLog, NewDailyLog } from '@/db/schema';
 
@@ -20,7 +21,7 @@ type UseDailyLogsReturn = {
 };
 
 export function useDailyLogs(): UseDailyLogsReturn {
-  const { data, error: queryError } = useLiveQuery(
+  const { data, error: queryError, updatedAt } = useLiveQuery(
     db.select().from(dailyLogs).orderBy(dailyLogs.date),
   );
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +78,7 @@ export function useDailyLogs(): UseDailyLogsReturn {
 
   return {
     logs: data ?? [],
-    isLoading: !data && !queryError,
+    isLoading: isQueryLoading(updatedAt, queryError),
     error: error ?? (queryError ? queryError.message : null),
     saveLog,
     deleteLog,

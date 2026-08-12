@@ -22,13 +22,13 @@ import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { usePeriods } from '@/hooks/use-periods';
 import { useSettings } from '@/hooks/use-settings';
 import { useToday } from '@/hooks/use-today';
-import { parseISODate } from '@/utils/date';
+import { addDays, parseISODate, toISODate } from '@/utils/date';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t } = useTranslation();
-  const { periods, error } = usePeriods();
+  const { periods, error, setPeriodEnd } = usePeriods();
   const { settings } = useSettings();
   const { logs } = useDailyLogs();
   const { colors } = useTheme();
@@ -50,6 +50,16 @@ export default function HomeScreen() {
     [router],
   );
 
+  // Confirming from the banner records yesterday as the last day of
+  // bleeding: the prompt only appears once the period has already run
+  // past its typical length, so "it has stopped" means it stopped before
+  // today rather than today.
+  const ongoingPeriodId = cycleInfo.ongoingPeriod?.id ?? null;
+  const handleConfirmPeriodEnded = useCallback(() => {
+    if (!ongoingPeriodId) return;
+    setPeriodEnd(ongoingPeriodId, toISODate(addDays(parseISODate(todayISO), -1)));
+  }, [ongoingPeriodId, setPeriodEnd, todayISO]);
+
   return (
     <View style={styles.container}>
       <View style={{ height: insets.top, backgroundColor: colors.background }} />
@@ -70,7 +80,11 @@ export default function HomeScreen() {
       {/* Phase banner */}
       {cycleInfo.currentPhase && (
         <Animated.View entering={FadeInDown.duration(600).delay(200).springify()}>
-          <PhaseBanner phaseInfo={cycleInfo.currentPhase} />
+          <PhaseBanner
+            phaseInfo={cycleInfo.currentPhase}
+            ongoingPeriod={cycleInfo.ongoingPeriod}
+            onConfirmPeriodEnded={handleConfirmPeriodEnded}
+          />
         </Animated.View>
       )}
 

@@ -4,6 +4,7 @@
 
 import {
   buildCycleWindows,
+  computeAveragePeriodLength,
   computeCycleLength,
   computeCycleVariance,
   computeFertileWindow,
@@ -11,8 +12,10 @@ import {
   computeOvulationDay,
   computePeriodDuration,
   getDayType,
+  isPeriodOngoing,
 } from './cycle';
 import type { CycleWindow } from './cycle';
+import { MAX_INFERRED_PERIOD_DAYS } from '@/constants/cycle';
 import { addDays, parseISODate, toISODate } from './date';
 
 /**
@@ -133,33 +136,150 @@ describe('computePeriodDuration', () => {
     const period = { startDate: '2025-01-01', endDate: '2025-01-04' };
     // Even with flow logged for a different, longer span, endDate wins.
     const flowLoggedDates = new Set(['2025-01-01', '2025-01-02', '2025-01-03', '2025-01-04', '2025-01-05', '2025-01-06']);
-    expect(computePeriodDuration(period, flowLoggedDates, defaultDurationDays)).toBe(4);
+    expect(computePeriodDuration(period, flowLoggedDates, defaultDurationDays)).toEqual({
+      days: 4,
+      source: 'explicit',
+    });
+  });
+
+  it('never reports a length below one day, even for a malformed record', () => {
+    const period = { startDate: '2025-01-05', endDate: '2025-01-01' };
+    expect(computePeriodDuration(period, new Set(), defaultDurationDays).days).toBe(1);
   });
 
   it('derives duration from consecutive flow-logged days when no endDate is set', () => {
     const period = { startDate: '2025-01-01', endDate: null };
     const flowLoggedDates = new Set(['2025-01-01', '2025-01-02', '2025-01-03']);
-    expect(computePeriodDuration(period, flowLoggedDates, defaultDurationDays)).toBe(3);
+    expect(computePeriodDuration(period, flowLoggedDates, defaultDurationDays)).toEqual({
+      days: 3,
+      source: 'logged',
+    });
   });
 
-  it('stops at the first gap in flow-logged days', () => {
+  it('counts a trailing spotting day as part of the period', () => {
+    // Spotting is a flow value like any other, so it lands in
+    // flowLoggedDates. This is deliberate rather than incidental: the
+    // duration-sensitive fiqh rules treat coloured discharge during the
+    // haid window as part of the period.
     const period = { startDate: '2025-01-01', endDate: null };
-    // 01 and 02 logged, 03 skipped, 04 logged — duration stops at the gap.
+    const flowLoggedDates = new Set(['2025-01-01', '2025-01-02', '2025-01-03']);
+    expect(computePeriodDuration(period, flowLoggedDates, defaultDurationDays).days).toBe(3);
+  });
+
+  it('bridges a single unlogged day rather than truncating the period', () => {
+    const period = { startDate: '2025-01-01', endDate: null };
+    // 03 was never logged, but 04 was — one forgotten day shouldn't cut
+    // the period short at two days.
     const flowLoggedDates = new Set(['2025-01-01', '2025-01-02', '2025-01-04']);
-    expect(computePeriodDuration(period, flowLoggedDates, defaultDurationDays)).toBe(2);
+    expect(computePeriodDuration(period, flowLoggedDates, defaultDurationDays)).toEqual({
+      days: 4,
+      source: 'logged',
+    });
+  });
+
+  it('stops at a gap longer than one day', () => {
+    const period = { startDate: '2025-01-01', endDate: null };
+    // 03 and 04 unlogged: too long a break to be the same period, so the
+    // later entry on 05 belongs to something else.
+    const flowLoggedDates = new Set(['2025-01-01', '2025-01-02', '2025-01-05']);
+    expect(computePeriodDuration(period, flowLoggedDates, defaultDurationDays).days).toBe(2);
+  });
+
+  it('caps the inferred length so a stray later entry cannot run it on forever', () => {
+    const period = { startDate: '2025-01-01', endDate: null };
+    // An unbroken run far longer than any real period.
+    const flowLoggedDates = new Set(
+      Array.from({ length: 40 }, (_, i) => toISODate(addDays(parseISODate('2025-01-01'), i))),
+    );
+    expect(computePeriodDuration(period, flowLoggedDates, defaultDurationDays).days).toBe(
+      MAX_INFERRED_PERIOD_DAYS,
+    );
   });
 
   it('falls back to the default when neither endDate nor flow logs are available', () => {
     const period = { startDate: '2025-01-01', endDate: null };
-    expect(computePeriodDuration(period, new Set(), defaultDurationDays)).toBe(defaultDurationDays);
+    expect(computePeriodDuration(period, new Set(), defaultDurationDays)).toEqual({
+      days: defaultDurationDays,
+      source: 'default',
+    });
   });
 
-  it('falls back to the default when the start date itself has no flow logged', () => {
+  it('still counts from the start when only the start day is unlogged', () => {
     const period = { startDate: '2025-01-01', endDate: null };
-    // Flow logged starting the day after — doesn't count since it
-    // doesn't begin at the period's start date.
+    // The user logged the start but forgot to record flow that day. The
+    // period demonstrably includes its own start date, so the run is
+    // 01→03, not a fallback to the default.
     const flowLoggedDates = new Set(['2025-01-02', '2025-01-03']);
-    expect(computePeriodDuration(period, flowLoggedDates, defaultDurationDays)).toBe(defaultDurationDays);
+    expect(computePeriodDuration(period, flowLoggedDates, defaultDurationDays)).toEqual({
+      days: 3,
+      source: 'logged',
+    });
+  });
+});
+
+describe('isPeriodOngoing', () => {
+  it('is true while bleeding is within the inferable window', () => {
+    const period = { startDate: '2025-01-01', endDate: null };
+    expect(isPeriodOngoing(period, '2025-01-03')).toBe(true);
+  });
+
+  it('is true on the start day itself', () => {
+    const period = { startDate: '2025-01-01', endDate: null };
+    expect(isPeriodOngoing(period, '2025-01-01')).toBe(true);
+  });
+
+  it('is false once an end has been recorded', () => {
+    const period = { startDate: '2025-01-01', endDate: '2025-01-04' };
+    expect(isPeriodOngoing(period, '2025-01-02')).toBe(false);
+  });
+
+  it('is false past the maximum inferable run, so a forgotten period does not stay open forever', () => {
+    const period = { startDate: '2025-01-01', endDate: null };
+    expect(isPeriodOngoing(period, '2025-03-01')).toBe(false);
+  });
+
+  it('is false for a period that has not started yet', () => {
+    const period = { startDate: '2025-02-01', endDate: null };
+    expect(isPeriodOngoing(period, '2025-01-15')).toBe(false);
+  });
+});
+
+describe('computeAveragePeriodLength', () => {
+  const today = '2025-06-01';
+
+  it('averages resolved lengths across settled periods', () => {
+    const periods = [
+      { startDate: '2025-01-01', endDate: '2025-01-04' }, // 4
+      { startDate: '2025-02-01', endDate: '2025-02-07' }, // 7
+    ];
+    expect(computeAveragePeriodLength(periods, new Set(), 5, today)).toBe(6);
+  });
+
+  it('lets a confirmed end date move the number', () => {
+    const flow = new Set(['2025-01-01', '2025-01-02', '2025-01-03']);
+    const inferred = [{ startDate: '2025-01-01', endDate: null }];
+    const confirmed = [{ startDate: '2025-01-01', endDate: '2025-01-06' }];
+    expect(computeAveragePeriodLength(inferred, flow, 5, today)).toBe(3);
+    expect(computeAveragePeriodLength(confirmed, flow, 5, today)).toBe(6);
+  });
+
+  it('ignores periods whose length is only the default echoed back', () => {
+    // Nothing logged and no end marked — reporting the user's own
+    // setting back at them as an insight would be meaningless.
+    const periods = [{ startDate: '2025-01-01', endDate: null }];
+    expect(computeAveragePeriodLength(periods, new Set(), 5, today)).toBeNull();
+  });
+
+  it('excludes a period still in progress, whose length is not known yet', () => {
+    const periods = [
+      { startDate: '2025-01-01', endDate: '2025-01-06' }, // 6, settled
+      { startDate: '2025-06-01', endDate: null }, // started today
+    ];
+    expect(computeAveragePeriodLength(periods, new Set(['2025-06-01']), 5, today)).toBe(6);
+  });
+
+  it('returns null when there is nothing to average', () => {
+    expect(computeAveragePeriodLength([], new Set(), 5, today)).toBeNull();
   });
 });
 

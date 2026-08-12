@@ -10,6 +10,7 @@ import i18n from 'i18next';
 import { useCallback } from 'react';
 
 import { db } from '@/db/client';
+import { isQueryLoading } from '@/utils/query';
 import { settings } from '@/db/schema';
 import type { Settings } from '@/db/schema';
 
@@ -28,7 +29,7 @@ type UseSettingsReturn = {
 };
 
 export function useSettings(): UseSettingsReturn {
-  const { data, error } = useLiveQuery(
+  const { data, error, updatedAt } = useLiveQuery(
     db.select().from(settings).where(eq(settings.id, SETTINGS_ID)),
   );
 
@@ -114,7 +115,7 @@ export function useSettings(): UseSettingsReturn {
 
   return {
     settings: currentSettings,
-    isLoading: !data && !error,
+    isLoading: isQueryLoading(updatedAt, error),
     updateLanguage,
     updateCalendarType,
     updateFallbackCycle,

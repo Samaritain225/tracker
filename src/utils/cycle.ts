@@ -7,6 +7,8 @@
 import {
   FERTILE_DAYS_AFTER_OVULATION,
   FERTILE_DAYS_BEFORE_OVULATION,
+  MAX_FLOW_LOG_GAP_DAYS,
+  MAX_INFERRED_PERIOD_DAYS,
   MAX_PLAUSIBLE_CYCLE_GAP_DAYS,
   MIN_PLAUSIBLE_CYCLE_GAP_DAYS,
   OVULATION_OFFSET_FROM_END,
@@ -125,33 +127,117 @@ export function computeFertileWindow(
   };
 }
 
+/** Where a resolved period duration came from, so the UI can say whether
+ * a number is the user's own answer or the app's best guess. */
+export type PeriodDurationSource = 'explicit' | 'logged' | 'default';
+
+export type PeriodDuration = {
+  days: number;
+  source: PeriodDurationSource;
+};
+
+/** The minimum a period record can represent: its start day. */
+type PeriodLike = { startDate: string; endDate: string | null };
+
 /**
  * Determines a single period's effective duration in days, instead of
  * assuming every period lasted the settings default. Priority:
- *   1. An explicit `endDate` on the period record (a user override).
- *   2. Consecutive daily-log entries with a non-null `flow`, starting
- *      at the period's start date — the real signal the app already
- *      collects but previously never used for calendar rendering.
- *   3. The settings-configured default duration, when neither of the
- *      above is available.
+ *   1. An explicit `endDate` on the period record — the user's own answer,
+ *      which always wins.
+ *   2. Daily-log entries with a non-null `flow` running on from the start
+ *      date. Spotting counts: `flowLoggedDates` includes every non-null
+ *      flow value, which is deliberate — the fiqh rules this feeds treat
+ *      coloured discharge during the haid window as part of the period.
+ *   3. The settings-configured default duration, when neither is available.
+ *
+ * The scan tolerates short gaps (MAX_FLOW_LOG_GAP_DAYS) so one forgotten
+ * day does not truncate a period, and stops at MAX_INFERRED_PERIOD_DAYS so
+ * a stray later entry cannot run it on forever.
  */
 export function computePeriodDuration(
-  period: { startDate: string; endDate: string | null },
+  period: PeriodLike,
   flowLoggedDates: Set<string>,
   defaultDurationDays: number,
-): number {
+): PeriodDuration {
   if (period.endDate) {
-    return daysBetween(parseISODate(period.startDate), parseISODate(period.endDate)) + 1;
+    const days =
+      daysBetween(parseISODate(period.startDate), parseISODate(period.endDate)) + 1;
+    // Guard against a malformed record (end before start) rather than
+    // returning a zero or negative length that would break rendering.
+    return { days: Math.max(1, days), source: 'explicit' };
   }
 
-  let days = 0;
-  let cursor = parseISODate(period.startDate);
-  while (flowLoggedDates.has(toISODate(cursor))) {
-    days++;
-    cursor = addDays(cursor, 1);
+  const start = parseISODate(period.startDate);
+  // Last offset from the start that had a logged flow. -1 means none at all.
+  let lastLoggedOffset = -1;
+
+  for (let offset = 0; offset < MAX_INFERRED_PERIOD_DAYS; offset++) {
+    if (flowLoggedDates.has(toISODate(addDays(start, offset)))) {
+      lastLoggedOffset = offset;
+    } else if (offset - lastLoggedOffset > MAX_FLOW_LOG_GAP_DAYS) {
+      // The run of unlogged days is now longer than we're willing to
+      // bridge, so the period ended at the last logged day.
+      break;
+    }
   }
 
-  return days > 0 ? days : defaultDurationDays;
+  if (lastLoggedOffset < 0) {
+    return { days: defaultDurationDays, source: 'default' };
+  }
+  return { days: lastLoggedOffset + 1, source: 'logged' };
+}
+
+/**
+ * True while a period should be treated as still bleeding: it is the most
+ * recent one, the user has not marked an end, and today is still within
+ * the longest run we are willing to infer.
+ *
+ * Derived rather than stored — an `is_ongoing` column would go stale the
+ * moment the app sits unopened for a week.
+ */
+export function isPeriodOngoing(
+  period: PeriodLike,
+  todayISO: string,
+  maxDays: number = MAX_INFERRED_PERIOD_DAYS,
+): boolean {
+  if (period.endDate) {
+    return false;
+  }
+  const elapsed = daysBetween(parseISODate(period.startDate), parseISODate(todayISO));
+  return elapsed >= 0 && elapsed < maxDays;
+}
+
+/**
+ * Average period length across logged periods, as the single source of
+ * truth for the Insights figure. Uses the same resolution ladder as the
+ * calendar, so confirming an end date actually moves the number the user
+ * sees. Periods still in progress are excluded — their length isn't known
+ * yet, and counting a day-2 period would drag the average down.
+ *
+ * Returns null when there is nothing meaningful to average.
+ */
+export function computeAveragePeriodLength(
+  periods: PeriodLike[],
+  flowLoggedDates: Set<string>,
+  defaultDurationDays: number,
+  todayISO: string,
+): number | null {
+  const settled = periods.filter((p) => !isPeriodOngoing(p, todayISO));
+  if (settled.length === 0) {
+    return null;
+  }
+
+  const lengths = settled
+    .map((p) => computePeriodDuration(p, flowLoggedDates, defaultDurationDays))
+    // A defaulted length is just the setting echoed back; averaging it in
+    // would report the user's own default to them as if it were a finding.
+    .filter((d) => d.source !== 'default')
+    .map((d) => d.days);
+
+  if (lengths.length === 0) {
+    return null;
+  }
+  return Math.round(lengths.reduce((sum, n) => sum + n, 0) / lengths.length);
 }
 
 /**
@@ -205,7 +291,7 @@ export function buildCycleWindows(
   for (let i = 0; i < sortedPeriods.length; i++) {
     const period = sortedPeriods[i];
     const duration = computePeriodDuration(period, flowLoggedDates, defaultPeriodDurationDays);
-    const end = toISODate(addDays(parseISODate(period.startDate), duration - 1));
+    const end = toISODate(addDays(parseISODate(period.startDate), duration.days - 1));
 
     // Use the real gap to the next logged period when there is one —
     // that historical cycle's ovulation estimate is then based on what

@@ -37,9 +37,10 @@ import { LoadingScreen } from '@/components/ui/loading-screen';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { usePeriods } from '@/hooks/use-periods';
-import { formatDisplayDate, parseISODate } from '@/utils/date';
+import { daysBetween, formatDisplayDate, parseISODate } from '@/utils/date';
 import { useSettings } from '@/hooks/use-settings';
-import type { DailyLog, FlowLevel } from '@/db/schema';
+import { MAX_INFERRED_PERIOD_DAYS } from '@/constants/cycle';
+import type { DailyLog, FlowLevel, Period } from '@/db/schema';
 
 const SYMPTOMS = ['cramps', 'headache', 'bloating', 'acne', 'fatigue'];
 const MOODS = ['happy', 'sensitive', 'sad', 'anxious'];
@@ -51,6 +52,7 @@ export default function DayDetailsScreen() {
     periods,
     addPeriod,
     removePeriod,
+    setPeriodEnd,
     error: periodError,
     isLoading: periodsLoading,
   } = usePeriods();
@@ -70,6 +72,7 @@ export default function DayDetailsScreen() {
 
   const currentLog = logs.find((l) => l.date === date) ?? null;
   const periodOnDate = periods.find((p) => p.startDate === date) ?? null;
+  const containingPeriod = findPeriodCovering(periods, date);
 
   return (
     <DayDetailsForm
@@ -79,12 +82,35 @@ export default function DayDetailsScreen() {
       calendarType={(settings?.calendarType as 'gregorian' | 'hijri') ?? 'gregorian'}
       initialLog={currentLog}
       initialPeriodId={periodOnDate?.id ?? null}
+      containingPeriodId={containingPeriod?.id ?? null}
+      initialIsPeriodEnd={containingPeriod?.endDate === date}
       periodError={periodError}
       addPeriod={addPeriod}
       removePeriod={removePeriod}
+      setPeriodEnd={setPeriodEnd}
       saveLog={saveLog}
     />
   );
+}
+
+/**
+ * The period a given day plausibly belongs to: the most recent one that
+ * started on or before it, within the longest run of bleeding we'd infer.
+ *
+ * This is what the "period ended" switch attaches to, so the switch can
+ * appear on any day of a period rather than only its first — you mark the
+ * end on the last day of bleeding, which is never the start day.
+ */
+function findPeriodCovering(list: Period[], date: string): Period | null {
+  let best: Period | null = null;
+  for (const p of list) {
+    if (p.startDate > date) continue;
+    const elapsed = daysBetween(parseISODate(p.startDate), parseISODate(date));
+    if (elapsed < MAX_INFERRED_PERIOD_DAYS && (!best || p.startDate > best.startDate)) {
+      best = p;
+    }
+  }
+  return best;
 }
 
 type DayDetailsFormProps = {
@@ -93,9 +119,14 @@ type DayDetailsFormProps = {
   calendarType: 'gregorian' | 'hijri';
   initialLog: DailyLog | null;
   initialPeriodId: string | null;
+  /** The period this day falls inside, if any — what the "period ended"
+   * switch writes to. Null on days not part of any period. */
+  containingPeriodId: string | null;
+  initialIsPeriodEnd: boolean;
   periodError: string | null;
   addPeriod: (date: string) => Promise<void>;
   removePeriod: (id: string) => Promise<void>;
+  setPeriodEnd: (id: string, date: string | null) => Promise<void>;
   saveLog: (
     date: string,
     partial: { flow: string | null; symptoms: string[]; mood: string | null; notes: string | null },
@@ -108,9 +139,12 @@ function DayDetailsForm({
   calendarType,
   initialLog,
   initialPeriodId,
+  containingPeriodId,
+  initialIsPeriodEnd,
   periodError,
   addPeriod,
   removePeriod,
+  setPeriodEnd,
   saveLog,
 }: DayDetailsFormProps) {
   const router = useRouter();
@@ -120,6 +154,7 @@ function DayDetailsForm({
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
 
   const [isPeriodStart, setIsPeriodStart] = useState(!!initialPeriodId);
+  const [isPeriodEnd, setIsPeriodEnd] = useState(initialIsPeriodEnd);
   const [flow, setFlow] = useState<FlowLevel | null>(
     (initialLog?.flow as FlowLevel) ?? null,
   );
@@ -154,6 +189,14 @@ function DayDetailsForm({
         await removePeriod(initialPeriodId);
       }
 
+      // Marking this day as the end records it on the period this day
+      // belongs to; unmarking clears the override so the flow logs infer
+      // the length again. Skipped when the period was just deleted above.
+      const periodStillExists = isPeriodStart || containingPeriodId !== initialPeriodId;
+      if (containingPeriodId && periodStillExists && isPeriodEnd !== initialIsPeriodEnd) {
+        await setPeriodEnd(containingPeriodId, isPeriodEnd ? date : null);
+      }
+
       // Always save — saveLog itself deletes the row when every field is
       // empty, so clearing a previously-logged day now actually clears it
       // instead of silently leaving the old data in place (plan item 2b).
@@ -171,7 +214,23 @@ function DayDetailsForm({
         router.back();
       }, 600);
     }
-  }, [date, isPeriodStart, initialPeriodId, flow, symptoms, mood, notes, addPeriod, removePeriod, saveLog, router]);
+  }, [
+    date,
+    isPeriodStart,
+    initialPeriodId,
+    isPeriodEnd,
+    initialIsPeriodEnd,
+    containingPeriodId,
+    flow,
+    symptoms,
+    mood,
+    notes,
+    addPeriod,
+    removePeriod,
+    setPeriodEnd,
+    saveLog,
+    router,
+  ]);
 
   const displayDate = formatDisplayDate(parseISODate(date), language, calendarType);
 
@@ -208,6 +267,24 @@ function DayDetailsForm({
                 thumbColor={colors.surface}
               />
             </View>
+
+            {/* Only offered on days that belong to a period — marking an
+                end is meaningless anywhere else. */}
+            {containingPeriodId ? (
+              <>
+                <View style={styles.row}>
+                  <Text style={styles.label}>{t('day_details.period_ended')}</Text>
+                  <Switch
+                    value={isPeriodEnd}
+                    onValueChange={setIsPeriodEnd}
+                    trackColor={{ true: colors.period, false: colors.border }}
+                    thumbColor={colors.surface}
+                  />
+                </View>
+                <Text style={styles.hint}>{t('day_details.period_ended_hint')}</Text>
+              </>
+            ) : null}
+
             {periodError ? (
               <Text style={styles.error}>{t(`errors.${periodError}`)}</Text>
             ) : null}
@@ -349,6 +426,12 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   error: {
     fontSize: Typography.sizes.sm,
     color: colors.danger,
+  },
+  hint: {
+    fontSize: Typography.sizes.xs,
+    color: colors.textMuted,
+    fontStyle: 'italic',
+    marginTop: -Spacing.sm,
   },
   sectionTitle: {
     fontSize: Typography.sizes.sm,

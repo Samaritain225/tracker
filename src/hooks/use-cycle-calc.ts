@@ -12,6 +12,7 @@ import type { DailyLog, Period, Settings } from '@/db/schema';
 import {
   buildCycleWindows,
   computeCycleLength,
+  isPeriodOngoing,
 } from '@/utils/cycle';
 import type { CycleWindow } from '@/utils/cycle';
 import { computePhase } from '@/utils/phase';
@@ -35,6 +36,23 @@ export type CycleInfo = {
   daysUntilNextPeriod: number | null;
   daysUntilOvulation: number | null;
   currentPhase: PhaseInfo | null;
+  /**
+   * The period currently in progress, if any — set while the user has
+   * logged a start but not yet marked an end. Drives the "Day N of your
+   * period" banner and the prompt to confirm the end once bleeding runs
+   * past the user's typical duration.
+   */
+  ongoingPeriod: OngoingPeriod | null;
+};
+
+export type OngoingPeriod = {
+  id: string;
+  startDate: string;
+  /** 1-based day of bleeding, so the first day reads as "Day 1". */
+  dayOfPeriod: number;
+  /** True once this has run longer than the user's configured typical
+   * duration — the moment it is worth asking whether it has stopped. */
+  exceedsTypical: boolean;
 };
 
 export function useCycleCalc(
@@ -70,6 +88,7 @@ export function useCycleCalc(
         daysUntilNextPeriod: null,
         daysUntilOvulation: null,
         currentPhase: null,
+        ongoingPeriod: null,
       };
     }
 
@@ -94,6 +113,19 @@ export function useCycleCalc(
     const daysUntilOvulation = ovulationDay ? daysBetween(today, ovulationDay) : null;
     const currentPhase = computePhase(lastPeriod, cycleLength, periodDuration, today);
 
+    // Only the most recent period can be in progress; anything earlier is
+    // settled whether or not its end was ever confirmed.
+    const latest = sortedPeriods[sortedPeriods.length - 1];
+    const dayOfPeriod = daysBetween(parseISODate(latest.startDate), today) + 1;
+    const ongoingPeriod: OngoingPeriod | null = isPeriodOngoing(latest, todayISO)
+      ? {
+          id: latest.id,
+          startDate: latest.startDate,
+          dayOfPeriod,
+          exceedsTypical: dayOfPeriod > periodDuration,
+        }
+      : null;
+
     return {
       cycleLength,
       cycleSource,
@@ -105,6 +137,7 @@ export function useCycleCalc(
       daysUntilNextPeriod,
       daysUntilOvulation,
       currentPhase,
+      ongoingPeriod,
     };
   }, [periodList, dailyLogList, currentSettings, todayISO]);
 }
