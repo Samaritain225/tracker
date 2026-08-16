@@ -34,10 +34,15 @@ export function MetricCard({ label, value, sub, accent = false }: Props) {
       >
         {label}
       </Text>
+      {/* Two lines, and deliberately not `selectable`: on Android a
+          selectable Text ignores numberOfLines, so a value like
+          "dans 23 jours" wrapped and had its second line clipped by the
+          card instead of being laid out. Three cards share a row, so a
+          full day-count never fits on one line — wrapping is the honest
+          fit here, and the row's equal-height cards absorb it. */}
       <Text
         style={[styles.value, accent && styles.accentValue]}
-        numberOfLines={1}
-        selectable
+        numberOfLines={2}
       >
         {value}
       </Text>
