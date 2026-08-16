@@ -53,26 +53,27 @@ export function CalendarGrid({
   const { colors } = useTheme();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
 
-  const [currentYear, setCurrentYear] = useState(year);
-  const [currentMonth, setCurrentMonth] = useState(month);
+  // Browsing offset in months from the `year`/`month` props, rather than
+  // a copy of them in state. State seeded from props ignores every later
+  // prop change, so the grid stayed on the old month once `todayISO`
+  // rolled over into a new one — the same staleness the "days until"
+  // and today-highlight fixes addressed. Storing the offset keeps the
+  // user's browsing position while still tracking the incoming month.
+  const [monthOffset, setMonthOffset] = useState(0);
+
+  // One value derived together, so the year can never be applied without
+  // its matching month. Date normalizes out-of-range months itself, which
+  // is what makes December→January roll the year over correctly.
+  const { currentYear, currentMonth } = useMemo(() => {
+    const d = new Date(year, month + monthOffset, 1);
+    return { currentYear: d.getFullYear(), currentMonth: d.getMonth() };
+  }, [year, month, monthOffset]);
 
   const weekdays = language === 'fr' ? WEEKDAY_KEYS_FR : WEEKDAY_KEYS_EN;
 
   const navigateMonth = useCallback((delta: number) => {
-    setCurrentMonth((prev) => {
-      let newMonth = prev + delta;
-      let newYear = currentYear;
-      if (newMonth < 0) {
-        newMonth = 11;
-        newYear -= 1;
-      } else if (newMonth > 11) {
-        newMonth = 0;
-        newYear += 1;
-      }
-      setCurrentYear(newYear);
-      return newMonth;
-    });
-  }, [currentYear]);
+    setMonthOffset((prev) => prev + delta);
+  }, []);
 
   const headerText = formatMonthHeader(currentYear, currentMonth, language, calendarType);
 
