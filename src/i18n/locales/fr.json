@@ -14,8 +14,10 @@
     "ovulation": "Ovulation",
     "cycle_length": "Durée du cycle",
     "fertile_window": "Fenêtre de fertilité",
-    "in_days": "dans {{count}} jours",
-    "days_ago": "il y a {{count}} jours",
+    "in_days_one": "dans {{count}} jour",
+    "in_days_other": "dans {{count}} jours",
+    "days_ago_one": "il y a {{count}} jour",
+    "days_ago_other": "il y a {{count}} jours",
     "today": "Aujourd'hui",
     "log_period": "Enregistrer le début des règles",
     "save": "Enregistrer",
@@ -25,7 +27,8 @@
   "history": {
     "title": "Historique des règles",
     "empty": "Aucune période enregistrée.\nCommencez par enregistrer vos premières règles dans l'onglet Accueil.",
-    "cycle_gap": "Cycle de {{count}} jours",
+    "cycle_gap_one": "Cycle de {{count}} jour",
+    "cycle_gap_other": "Cycle de {{count}} jours",
     "first_entry": "Première entrée",
     "delete_confirm": "Êtes-vous sûre de vouloir supprimer cette entrée ?",
     "delete": "Supprimer",
@@ -44,7 +47,8 @@
     "cycle_defaults": "Paramètres du cycle",
     "fallback_cycle": "Durée du cycle par défaut",
     "period_duration": "Durée des règles",
-    "days": "{{count}} jours",
+    "days_one": "{{count}} jour",
+    "days_other": "{{count}} jours",
     "about": "À propos",
     "version": "Version {{version}}",
     "fallback_note": "Utilisé lorsque moins de 2 périodes sont enregistrées",
@@ -72,10 +76,16 @@
     "ovulatory": "Phase ovulatoire",
     "luteal": "Phase lutéale",
     "day_of": "Jour {{day}} de votre cycle",
+    "days_late_one": "{{count}} jour de retard",
+    "days_late_other": "{{count}} jours de retard",
     "menstrual_tip": "Repos et récupération — écoutez votre corps",
     "follicular_tip": "Énergie montante — idéal pour de nouveaux projets",
     "ovulatory_tip": "Énergie maximale — parfait pour le sport et les sorties",
-    "luteal_tip": "Ralentissez — concentrez-vous sur le bien-être"
+    "luteal_tip": "Ralentissez — concentrez-vous sur le bien-être",
+    "late_tip": "Vos règles n'ont pas encore commencé. Un léger retard est normal, mais notez-le si cela persiste.",
+    "period_day_of": "Jour {{day}} des règles",
+    "period_ended_question": "Vos règles sont-elles terminées ?",
+    "period_ended_yes": "Oui, terminées"
   },
   "insights": {
     "title": "Analyses",
@@ -84,15 +94,18 @@
     "variance": "Variation typique",
     "most_common_symptoms": "Symptômes fréquents",
     "no_data": "Pas assez de données",
-    "days": "{{count}} jours",
-    "days_variance": "±{{count}} jours",
+    "days_one": "{{count}} jour",
+    "days_other": "{{count}} jours",
+    "days_variance_one": "±{{count}} jour",
+    "days_variance_other": "±{{count}} jours",
     "symptom_heatmap": "Tendances des symptômes",
     "cycle_day": "Jour du cycle →"
   },
   "errors": {
     "duplicate_date": "Une période est déjà enregistrée à cette date",
     "save_failed": "Échec de l'enregistrement. Veuillez réessayer.",
-    "delete_failed": "Échec de la suppression. Veuillez réessayer."
+    "delete_failed": "Échec de la suppression. Veuillez réessayer.",
+    "end_before_start": "La fin des règles ne peut pas précéder leur début."
   },
   "common": {
     "cancel": "Annuler",
@@ -103,6 +116,7 @@
     "title": "Détails du jour",
     "period_started": "Les règles ont commencé",
     "flow": "Flux",
+    "flow_spotting": "Spotting",
     "flow_light": "Léger",
     "flow_medium": "Moyen",
     "flow_heavy": "Abondant",
@@ -120,7 +134,9 @@
     "notes": "Notes",
     "save": "Enregistrer",
     "saving": "Enregistrement...",
-    "export_data": "Exporter mes données"
+    "export_data": "Exporter mes données",
+    "period_ended": "Les règles sont terminées",
+    "period_ended_hint": "Marquez le dernier jour de saignement, spotting compris."
   },
   "notifications": {
     "period_title": "Rappel de règles",

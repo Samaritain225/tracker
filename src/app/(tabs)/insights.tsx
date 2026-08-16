@@ -18,8 +18,13 @@ import { SymptomHeatmap } from '@/components/insights/symptom-heatmap';
 import { usePeriods } from '@/hooks/use-periods';
 import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { useSettings } from '@/hooks/use-settings';
-import { computeCycleLength } from '@/utils/cycle';
-import { daysBetween, parseISODate } from '@/utils/date';
+import { useToday } from '@/hooks/use-today';
+import { DEFAULT_PERIOD_DURATION_DAYS } from '@/constants/cycle';
+import {
+  computeAveragePeriodLength,
+  computeCycleLength,
+  computeCycleVariance,
+} from '@/utils/cycle';
 
 export default function InsightsScreen() {
   const insets = useSafeAreaInsets();
@@ -29,6 +34,7 @@ export default function InsightsScreen() {
   const { settings } = useSettings();
   const { colors } = useTheme();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
+  const todayISO = useToday();
 
   const fallbackCycle = settings?.fallbackCycleDays ?? 28;
 
@@ -41,58 +47,30 @@ export default function InsightsScreen() {
   }, [sortedDates, fallbackCycle]);
 
   // 1. Average Cycle Length & Variance
-  const { avgCycle, variance } = useMemo(() => {
-    if (sortedDates.length < 2) return { avgCycle: null, variance: null };
+  // Delegates to the same computeCycleLength/computeCycleVariance the
+  // Home screen's prediction uses (via useCycleCalc), so this card and
+  // the Home metrics can never disagree.
+  const avgCycle = sortedDates.length >= 2 ? computedCycleLength : null;
+  const variance = useMemo(() => computeCycleVariance(sortedDates), [sortedDates]);
 
-    const lengths: number[] = [];
-    for (let i = 1; i < sortedDates.length; i++) {
-       const gap = daysBetween(parseISODate(sortedDates[i - 1]), parseISODate(sortedDates[i]));
-       lengths.push(gap);
-    }
-    
-    // Use last 6 cycles at most for relevance
-    const recent = lengths.slice(-6);
-    const avg = Math.round(recent.reduce((a, b) => a + b, 0) / recent.length);
-    
-    // Simple variance (average absolute deviation)
-    const deviation = recent.reduce((sum, val) => sum + Math.abs(val - avg), 0) / recent.length;
-    const roundedVariance = Math.round(deviation);
-
-    return { avgCycle: avg, variance: roundedVariance };
-  }, [sortedDates]);
-
-  // 2. Average Period Length (using flow data)
-  const avgPeriodLength = useMemo(() => {
-    const flowLogs = logs.filter((l) => l.flow !== null).sort((a, b) => a.date.localeCompare(b.date));
-    if (flowLogs.length === 0) return null;
-
-    let periodCount = 0;
-    let totalDays = 0;
-    let currentPeriodDays = 0;
-    let lastDate: Date | null = null;
-
-    for (const log of flowLogs) {
-      const d = parseISODate(log.date);
-      if (!lastDate) {
-        currentPeriodDays = 1;
-        periodCount = 1;
-      } else {
-        const gap = daysBetween(lastDate, d);
-        if (gap === 1) {
-           currentPeriodDays++;
-        } else {
-           // New period block
-           totalDays += currentPeriodDays;
-           currentPeriodDays = 1;
-           periodCount++;
-        }
-      }
-      lastDate = d;
-    }
-    totalDays += currentPeriodDays;
-
-    return periodCount > 0 ? Math.round(totalDays / periodCount) : null;
-  }, [logs]);
+  // 2. Average Period Length.
+  // Delegates to computeAveragePeriodLength so this uses the same
+  // resolution ladder as the calendar — an end date the user confirmed
+  // moves this number, which a scan over raw flow logs would ignore.
+  const flowLoggedDates = useMemo(
+    () => new Set(logs.filter((l) => l.flow).map((l) => l.date)),
+    [logs],
+  );
+  const avgPeriodLength = useMemo(
+    () =>
+      computeAveragePeriodLength(
+        periods,
+        flowLoggedDates,
+        settings?.periodDurationDays ?? DEFAULT_PERIOD_DURATION_DAYS,
+        todayISO,
+      ),
+    [periods, flowLoggedDates, settings?.periodDurationDays, todayISO],
+  );
 
   // 3. Most Common Symptoms
   const topSymptoms = useMemo(() => {

@@ -16,7 +16,7 @@ import { useTheme } from '@/providers/theme-provider';
 import type { CycleInfo } from '@/hooks/use-cycle-calc';
 import type { DailyLog } from '@/db/schema';
 import { getDayType } from '@/utils/cycle';
-import { formatMonthHeader, isSameDay, toISODate } from '@/utils/date';
+import { formatMonthHeader, isSameDay, parseISODate, toISODate } from '@/utils/date';
 import { CalendarDay } from './calendar-day';
 import type { PeriodPosition } from './calendar-day';
 import { Icon } from '@/components/ui/icon';
@@ -24,12 +24,16 @@ import { Icon } from '@/components/ui/icon';
 type Props = {
   year: number;
   month: number;
-  periods: string[];
+  /** Full past+future cycle series (getDayType resolves against this
+   * directly, so the calendar stays correct in any month, not just the
+   * one closest to today). */
   cycleInfo: CycleInfo | null;
   dailyLogs?: DailyLog[];
-  periodDurationDays: number;
   calendarType: 'gregorian' | 'hijri';
   language: 'en' | 'fr';
+  /** ISO date string for "today", from useToday() — kept fresh across
+   * midnight instead of captured once on mount. */
+  todayISO: string;
   onDayPress: (isoDate: string) => void;
 };
 
@@ -39,37 +43,37 @@ const WEEKDAY_KEYS_FR = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 export function CalendarGrid({
   year,
   month,
-  periods,
   cycleInfo,
   dailyLogs = [],
-  periodDurationDays,
   calendarType,
   language,
+  todayISO,
   onDayPress,
 }: Props) {
   const { colors } = useTheme();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
 
-  const [currentYear, setCurrentYear] = useState(year);
-  const [currentMonth, setCurrentMonth] = useState(month);
+  // Browsing offset in months from the `year`/`month` props, rather than
+  // a copy of them in state. State seeded from props ignores every later
+  // prop change, so the grid stayed on the old month once `todayISO`
+  // rolled over into a new one — the same staleness the "days until"
+  // and today-highlight fixes addressed. Storing the offset keeps the
+  // user's browsing position while still tracking the incoming month.
+  const [monthOffset, setMonthOffset] = useState(0);
+
+  // One value derived together, so the year can never be applied without
+  // its matching month. Date normalizes out-of-range months itself, which
+  // is what makes December→January roll the year over correctly.
+  const { currentYear, currentMonth } = useMemo(() => {
+    const d = new Date(year, month + monthOffset, 1);
+    return { currentYear: d.getFullYear(), currentMonth: d.getMonth() };
+  }, [year, month, monthOffset]);
 
   const weekdays = language === 'fr' ? WEEKDAY_KEYS_FR : WEEKDAY_KEYS_EN;
 
   const navigateMonth = useCallback((delta: number) => {
-    setCurrentMonth((prev) => {
-      let newMonth = prev + delta;
-      let newYear = currentYear;
-      if (newMonth < 0) {
-        newMonth = 11;
-        newYear -= 1;
-      } else if (newMonth > 11) {
-        newMonth = 0;
-        newYear += 1;
-      }
-      setCurrentYear(newYear);
-      return newMonth;
-    });
-  }, [currentYear]);
+    setMonthOffset((prev) => prev + delta);
+  }, []);
 
   const headerText = formatMonthHeader(currentYear, currentMonth, language, calendarType);
 
@@ -93,32 +97,22 @@ export function CalendarGrid({
     return days;
   }, [currentYear, currentMonth]);
 
-  const today = useMemo(() => new Date(), []);
+  const today = useMemo(() => parseISODate(todayISO), [todayISO]);
 
-  // Default fertile window and ovulation for getDayType
-  const defaultFertileWindow = cycleInfo?.fertileWindow ?? { start: new Date(0), end: new Date(0) };
-  const defaultOvulation = cycleInfo?.ovulationDay ?? new Date(0);
-  const defaultNextPeriod = cycleInfo?.nextPeriod ?? new Date(0);
+  const cycles = cycleInfo?.cycles ?? [];
 
   // Pre-compute day types and period positions for the entire grid
   const dayData = useMemo(() => {
     return calendarDays.map((date) => {
       if (!date) return null;
 
-      const dayType = getDayType(
-        date,
-        periods,
-        periodDurationDays,
-        defaultFertileWindow,
-        defaultOvulation,
-        defaultNextPeriod,
-      );
+      const dayType = getDayType(date, cycles);
       const isoDate = toISODate(date);
       const hasLog = dailyLogs.some((l) => l.date === isoDate);
 
       return { date, dayType, isoDate, hasLog };
     });
-  }, [calendarDays, periods, periodDurationDays, defaultFertileWindow, defaultOvulation, defaultNextPeriod, dailyLogs]);
+  }, [calendarDays, cycles, dailyLogs]);
 
   // Compute period positions (first/middle/last/single) for connected range rendering
   const periodPositions = useMemo(() => {

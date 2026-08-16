@@ -15,6 +15,7 @@ import { ThemeProvider as NavThemeProvider, DarkTheme, DefaultTheme } from '@rea
 import { DatabaseProvider } from '@/providers/database-provider';
 import { ThemeProvider, useTheme } from '@/providers/theme-provider';
 import { AppLockProvider } from '@/providers/app-lock-provider';
+import { RemindersProvider } from '@/providers/reminders-provider';
 import { setupNotificationHandler } from '@/services/notifications';
 
 // Set up notification handler at module level (before any component renders)
@@ -68,7 +69,9 @@ export default function RootLayout() {
     <DatabaseProvider>
       <ThemeProvider>
         <AppLockProvider>
-          <AppContent />
+          <RemindersProvider>
+            <AppContent />
+          </RemindersProvider>
         </AppLockProvider>
       </ThemeProvider>
     </DatabaseProvider>

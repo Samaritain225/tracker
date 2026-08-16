@@ -25,6 +25,12 @@ function generateId(): string {
 export const periods = sqliteTable('periods', {
   id: text('id').primaryKey().$defaultFn(generateId),
   startDate: text('start_date').notNull().unique(),
+  /**
+   * Nullable: null means the period's actual length is unknown and
+   * getDayType should fall back to the settings default duration.
+   * Derived from consecutive daily_logs.flow entries when available.
+   */
+  endDate: text('end_date'),
   notes: text('notes'),
   createdAt: integer('created_at').$defaultFn(() => Date.now()),
 });
@@ -43,7 +49,7 @@ export const settings = sqliteTable('settings', {
 export const dailyLogs = sqliteTable('daily_logs', {
   id: text('id').primaryKey().$defaultFn(generateId),
   date: text('date').notNull().unique(), // ISO string YYYY-MM-DD
-  flow: text('flow'), // enum: light, medium, heavy
+  flow: text('flow'), // enum: spotting, light, medium, heavy
   symptoms: text('symptoms', { mode: 'json' }).$type<string[]>(),
   mood: text('mood'),
   notes: text('notes'),
@@ -57,3 +63,6 @@ export type NewPeriod = typeof periods.$inferInsert;
 export type Settings = typeof settings.$inferSelect;
 export type DailyLog = typeof dailyLogs.$inferSelect;
 export type NewDailyLog = typeof dailyLogs.$inferInsert;
+
+/** dailyLogs.flow vocabulary — see schema comment on that column. */
+export type FlowLevel = 'spotting' | 'light' | 'medium' | 'heavy';
