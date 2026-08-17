@@ -12,6 +12,7 @@ import type { DailyLog, Period, Settings } from '@/db/schema';
 import {
   buildCycleWindows,
   computeCycleLength,
+  hasPlausibleCycleData,
   isPeriodOngoing,
 } from '@/utils/cycle';
 import type { CycleWindow } from '@/utils/cycle';
@@ -69,8 +70,12 @@ export function useCycleCalc(
     const sortedDates = sortedPeriods.map((p) => p.startDate);
 
     const cycleLength = computeCycleLength(sortedDates, fallback);
+    // Asks whether the number is actually a measurement, not merely
+    // whether two dates exist — two starts a few days apart yield a
+    // fallback value, and calling that "calculated" is a lie the user
+    // has no way to see through.
     const cycleSource: 'calculated' | 'fallback' =
-      sortedDates.length >= 2 ? 'calculated' : 'fallback';
+      hasPlausibleCycleData(sortedDates) ? 'calculated' : 'fallback';
 
     const lastPeriod = sortedPeriods.length > 0
       ? sortedPeriods[sortedPeriods.length - 1].startDate

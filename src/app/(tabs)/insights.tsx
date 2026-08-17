@@ -24,6 +24,7 @@ import {
   computeAveragePeriodLength,
   computeCycleLength,
   computeCycleVariance,
+  hasPlausibleCycleData,
 } from '@/utils/cycle';
 
 export default function InsightsScreen() {
@@ -50,7 +51,10 @@ export default function InsightsScreen() {
   // Delegates to the same computeCycleLength/computeCycleVariance the
   // Home screen's prediction uses (via useCycleCalc), so this card and
   // the Home metrics can never disagree.
-  const avgCycle = sortedDates.length >= 2 ? computedCycleLength : null;
+  // Show a dash rather than the settings default dressed up as a
+  // measurement — the same reasoning computeAveragePeriodLength applies
+  // when it refuses to average a defaulted period length.
+  const avgCycle = hasPlausibleCycleData(sortedDates) ? computedCycleLength : null;
   const variance = useMemo(() => computeCycleVariance(sortedDates), [sortedDates]);
 
   // 2. Average Period Length.

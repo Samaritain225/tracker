@@ -11,11 +11,17 @@ import {
   computeNextPeriod,
   computeOvulationDay,
   computePeriodDuration,
+  findPeriodCovering,
   getDayType,
+  hasPlausibleCycleData,
   isPeriodOngoing,
 } from './cycle';
 import type { CycleWindow } from './cycle';
-import { MAX_INFERRED_PERIOD_DAYS } from '@/constants/cycle';
+import {
+  MAX_INFERRED_PERIOD_DAYS,
+  MAX_PLAUSIBLE_CYCLE_GAP_DAYS,
+  MIN_PLAUSIBLE_CYCLE_GAP_DAYS,
+} from '@/constants/cycle';
 import { addDays, parseISODate, toISODate } from './date';
 
 /**
@@ -76,12 +82,55 @@ describe('computeCycleLength', () => {
     expect(computeCycleLength(dates, 28)).toBe(28);
   });
 
-  it('falls back to the unfiltered gaps when every recent gap is implausible', () => {
-    // Every gap here is outside [15, 60], so nothing passes the
-    // plausibility filter — the median of the raw gaps is used instead
-    // of silently discarding all the data.
+  it('keeps implausibly long gaps when nothing is in range', () => {
+    // Every gap here is outside [15, 60], but long cycles are unusual
+    // rather than impossible (PCOS, perimenopause, post-partum). 70 is a
+    // far better answer for this user than the 28-day default.
     const dates = datesFromGaps('2025-01-01', [70, 75, 65]);
     expect(computeCycleLength(dates, 28)).toBe(70);
+  });
+
+  it('returns the fallback when the only gaps are implausibly short', () => {
+    // Two starts 2 days apart is a period logged twice, not a 2-day
+    // cycle. Taken literally this reported itself as "calculated", put
+    // ovulation before its own period, and filled the calendar with
+    // predictions every other day.
+    expect(computeCycleLength(['2025-01-01', '2025-01-03'], 28)).toBe(28);
+    const several = datesFromGaps('2025-01-01', [2, 5, 3]);
+    expect(computeCycleLength(several, 30)).toBe(30);
+  });
+
+  it('discards short gaps but still uses long ones from the same set', () => {
+    const dates = datesFromGaps('2025-01-01', [2, 70]);
+    expect(computeCycleLength(dates, 28)).toBe(70);
+  });
+
+  it('prefers in-range gaps over both extremes', () => {
+    const dates = datesFromGaps('2025-01-01', [2, 28, 70]);
+    expect(computeCycleLength(dates, 99)).toBe(28);
+  });
+});
+
+describe('hasPlausibleCycleData', () => {
+  it('is false without enough dates to form a gap', () => {
+    expect(hasPlausibleCycleData([])).toBe(false);
+    expect(hasPlausibleCycleData(['2025-01-01'])).toBe(false);
+  });
+
+  it('is false when the only gaps are implausibly short', () => {
+    expect(hasPlausibleCycleData(['2025-01-01', '2025-01-03'])).toBe(false);
+  });
+
+  it('is true for in-range gaps, and for long ones that still carry signal', () => {
+    expect(hasPlausibleCycleData(datesFromGaps('2025-01-01', [28, 30]))).toBe(true);
+    expect(hasPlausibleCycleData(datesFromGaps('2025-01-01', [70, 75, 65]))).toBe(true);
+  });
+
+  it('agrees with computeCycleLength about whether the result is a measurement', () => {
+    const unusable = ['2025-01-01', '2025-01-03'];
+    expect(hasPlausibleCycleData(unusable)).toBe(false);
+    // i.e. the number the UI would label "calculated" is really the fallback.
+    expect(computeCycleLength(unusable, 28)).toBe(28);
   });
 });
 
@@ -241,6 +290,62 @@ describe('isPeriodOngoing', () => {
   it('is false for a period that has not started yet', () => {
     const period = { startDate: '2025-02-01', endDate: null };
     expect(isPeriodOngoing(period, '2025-01-15')).toBe(false);
+  });
+});
+
+describe('findPeriodCovering', () => {
+  const open = { id: 'open', startDate: '2026-01-01', endDate: null };
+  const closed = { id: 'closed', startDate: '2026-01-01', endDate: '2026-01-04' };
+
+  it('returns null when no period started on or before the date', () => {
+    expect(findPeriodCovering([open], '2025-12-31')).toBeNull();
+    expect(findPeriodCovering([], '2026-01-01')).toBeNull();
+  });
+
+  it('covers the start day itself', () => {
+    expect(findPeriodCovering([open], '2026-01-01')).toBe(open);
+    expect(findPeriodCovering([closed], '2026-01-01')).toBe(closed);
+  });
+
+  it('covers up to and including a confirmed end date', () => {
+    expect(findPeriodCovering([closed], '2026-01-03')).toBe(closed);
+    expect(findPeriodCovering([closed], '2026-01-04')).toBe(closed);
+  });
+
+  // The regression this function was extracted for: a day past a
+  // confirmed end used to still resolve to that period, so the
+  // "period ended" switch could rewrite the user's own answer.
+  it('does not cover a day past a confirmed end, even inside the inferred window', () => {
+    expect(findPeriodCovering([closed], '2026-01-05')).toBeNull();
+    expect(findPeriodCovering([closed], '2026-01-12')).toBeNull();
+  });
+
+  it('falls back to the inferred window only when no end is confirmed', () => {
+    // MAX_INFERRED_PERIOD_DAYS is 15: offsets 0..14 are covered, 15 is not.
+    const lastCovered = toISODate(
+      addDays(parseISODate(open.startDate), MAX_INFERRED_PERIOD_DAYS - 1),
+    );
+    const firstUncovered = toISODate(
+      addDays(parseISODate(open.startDate), MAX_INFERRED_PERIOD_DAYS),
+    );
+    expect(findPeriodCovering([open], lastCovered)).toBe(open);
+    expect(findPeriodCovering([open], firstUncovered)).toBeNull();
+  });
+
+  it('prefers the most recent start when windows overlap', () => {
+    const earlier = { id: 'earlier', startDate: '2026-01-01', endDate: null };
+    const later = { id: 'later', startDate: '2026-01-06', endDate: null };
+    expect(findPeriodCovering([earlier, later], '2026-01-08')).toBe(later);
+    // Order in the list must not matter.
+    expect(findPeriodCovering([later, earlier], '2026-01-08')).toBe(later);
+  });
+
+  it('skips a closed period to find an older open one still covering the day', () => {
+    const older = { id: 'older', startDate: '2026-01-01', endDate: null };
+    const recentClosed = { id: 'recent', startDate: '2026-01-05', endDate: '2026-01-07' };
+    // 2026-01-09 is past the closed period's end, but still inside the
+    // older one's inferred window.
+    expect(findPeriodCovering([older, recentClosed], '2026-01-09')).toBe(older);
   });
 });
 
@@ -413,6 +518,43 @@ describe('buildCycleWindows', () => {
     const windows = buildCycleWindows(periods, new Set(), 28, defaultPeriodDurationDays);
     const expectedOvulation = toISODate(computeOvulationDay('2025-01-01', 28));
     expect(windows[0].ovulation).toBe(expectedOvulation);
+  });
+
+  it('falls back to the average when the real gap is implausibly short', () => {
+    // Two starts 5 days apart — a mistyped date, or a period logged
+    // twice. Taken literally, ovulation would land at start + 5 - 14,
+    // nine days *before* the period it belongs to.
+    const periods = [
+      { startDate: '2025-01-01', endDate: null },
+      { startDate: '2025-01-06', endDate: null },
+    ];
+    const windows = buildCycleWindows(periods, new Set(), 28, defaultPeriodDurationDays);
+
+    expect(windows[0].ovulation).toBe(toISODate(computeOvulationDay('2025-01-01', 28)));
+    // The guard's whole point: the estimate stays inside its own cycle.
+    expect(windows[0].ovulation > windows[0].start).toBe(true);
+    expect(windows[0].fertileStart > windows[0].start).toBe(true);
+  });
+
+  it('falls back to the average when the real gap is implausibly long', () => {
+    const periods = [
+      { startDate: '2025-01-01', endDate: null },
+      { startDate: '2025-06-01', endDate: null }, // ~151 days
+    ];
+    const windows = buildCycleWindows(periods, new Set(), 28, defaultPeriodDurationDays);
+    expect(windows[0].ovulation).toBe(toISODate(computeOvulationDay('2025-01-01', 28)));
+  });
+
+  it('still uses gaps at the edges of the plausible range', () => {
+    for (const gap of [MIN_PLAUSIBLE_CYCLE_GAP_DAYS, MAX_PLAUSIBLE_CYCLE_GAP_DAYS]) {
+      const second = toISODate(addDays(parseISODate('2025-01-01'), gap));
+      const periods = [
+        { startDate: '2025-01-01', endDate: null },
+        { startDate: second, endDate: null },
+      ];
+      const windows = buildCycleWindows(periods, new Set(), 28, defaultPeriodDurationDays);
+      expect(windows[0].ovulation).toBe(toISODate(computeOvulationDay('2025-01-01', gap)));
+    }
   });
 
   it('derives each logged window\'s duration via computePeriodDuration', () => {
