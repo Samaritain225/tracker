@@ -136,7 +136,8 @@
     "saving": "Saving...",
     "export_data": "Export Data",
     "period_ended": "Period ended",
-    "period_ended_hint": "Mark the last day of bleeding, including spotting."
+    "period_ended_hint": "Mark the last day of bleeding, including spotting.",
+    "part_of_period": "Day {{day}} of the period that started {{date}}"
   },
   "notifications": {
     "period_title": "Period Reminder",

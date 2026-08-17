@@ -16,7 +16,10 @@ type UseDailyLogsReturn = {
   logs: DailyLog[];
   isLoading: boolean;
   error: string | null;
-  saveLog: (date: string, partial: Partial<Omit<NewDailyLog, 'id' | 'date' | 'createdAt' | 'updatedAt'>>) => Promise<void>;
+  /** Returns true if the write succeeded. Reports its outcome rather
+   * than resolving void because it swallows its own errors into `error`
+   * state — see the same note on usePeriods. */
+  saveLog: (date: string, partial: Partial<Omit<NewDailyLog, 'id' | 'date' | 'createdAt' | 'updatedAt'>>) => Promise<boolean>;
   deleteLog: (id: string) => Promise<void>;
 };
 
@@ -29,7 +32,7 @@ export function useDailyLogs(): UseDailyLogsReturn {
   const saveLog = useCallback(async (
     date: string,
     partial: Partial<Omit<NewDailyLog, 'id' | 'date' | 'createdAt' | 'updatedAt'>>
-  ) => {
+  ): Promise<boolean> => {
     try {
       setError(null);
       // Check if a log already exists for this date
@@ -61,9 +64,11 @@ export function useDailyLogs(): UseDailyLogsReturn {
           ...partial,
         });
       }
+      return true;
     } catch (e) {
       console.error(e);
       setError('save_failed');
+      return false;
     }
   }, []);
 

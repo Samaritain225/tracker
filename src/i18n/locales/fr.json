@@ -136,7 +136,8 @@
     "saving": "Enregistrement...",
     "export_data": "Exporter mes données",
     "period_ended": "Les règles sont terminées",
-    "period_ended_hint": "Marquez le dernier jour de saignement, spotting compris."
+    "period_ended_hint": "Marquez le dernier jour de saignement, spotting compris.",
+    "part_of_period": "Jour {{day}} des règles commencées le {{date}}"
   },
   "notifications": {
     "period_title": "Rappel de règles",

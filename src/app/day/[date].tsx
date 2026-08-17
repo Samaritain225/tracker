@@ -38,9 +38,9 @@ import { SegmentedControl } from '@/components/ui/segmented-control';
 import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { usePeriods } from '@/hooks/use-periods';
 import { daysBetween, formatDisplayDate, parseISODate } from '@/utils/date';
+import { findPeriodCovering } from '@/utils/cycle';
 import { useSettings } from '@/hooks/use-settings';
-import { MAX_INFERRED_PERIOD_DAYS } from '@/constants/cycle';
-import type { DailyLog, FlowLevel, Period } from '@/db/schema';
+import type { DailyLog, FlowLevel } from '@/db/schema';
 
 const SYMPTOMS = ['cramps', 'headache', 'bloating', 'acne', 'fatigue'];
 const MOODS = ['happy', 'sensitive', 'sad', 'anxious'];
@@ -56,7 +56,7 @@ export default function DayDetailsScreen() {
     error: periodError,
     isLoading: periodsLoading,
   } = usePeriods();
-  const { logs, saveLog, isLoading: logsLoading } = useDailyLogs();
+  const { logs, saveLog, isLoading: logsLoading, error: logError } = useDailyLogs();
 
   if (!date) return null;
 
@@ -74,6 +74,23 @@ export default function DayDetailsScreen() {
   const periodOnDate = periods.find((p) => p.startDate === date) ?? null;
   const containingPeriod = findPeriodCovering(periods, date);
 
+  // This day already belongs to a period without being its start, so
+  // offering "period started" here would let the user log a second start
+  // a few days after the first — which is not a new cycle, and which
+  // dragged the whole average down to the gap between them. Shown as
+  // context instead. (When the day *is* a start the two resolve to the
+  // same record, so this stays null.)
+  const partOfPeriod =
+    containingPeriod && !periodOnDate
+      ? {
+          startDate: containingPeriod.startDate,
+          // 1-based, so the first day reads as "Day 1" — the same
+          // convention as OngoingPeriod.dayOfPeriod.
+          dayOfPeriod:
+            daysBetween(parseISODate(containingPeriod.startDate), parseISODate(date)) + 1,
+        }
+      : null;
+
   return (
     <DayDetailsForm
       key={date}
@@ -83,34 +100,15 @@ export default function DayDetailsScreen() {
       initialLog={currentLog}
       initialPeriodId={periodOnDate?.id ?? null}
       containingPeriodId={containingPeriod?.id ?? null}
+      partOfPeriod={partOfPeriod}
       initialIsPeriodEnd={containingPeriod?.endDate === date}
-      periodError={periodError}
+      saveError={periodError ?? logError}
       addPeriod={addPeriod}
       removePeriod={removePeriod}
       setPeriodEnd={setPeriodEnd}
       saveLog={saveLog}
     />
   );
-}
-
-/**
- * The period a given day plausibly belongs to: the most recent one that
- * started on or before it, within the longest run of bleeding we'd infer.
- *
- * This is what the "period ended" switch attaches to, so the switch can
- * appear on any day of a period rather than only its first — you mark the
- * end on the last day of bleeding, which is never the start day.
- */
-function findPeriodCovering(list: Period[], date: string): Period | null {
-  let best: Period | null = null;
-  for (const p of list) {
-    if (p.startDate > date) continue;
-    const elapsed = daysBetween(parseISODate(p.startDate), parseISODate(date));
-    if (elapsed < MAX_INFERRED_PERIOD_DAYS && (!best || p.startDate > best.startDate)) {
-      best = p;
-    }
-  }
-  return best;
 }
 
 type DayDetailsFormProps = {
@@ -122,15 +120,19 @@ type DayDetailsFormProps = {
   /** The period this day falls inside, if any — what the "period ended"
    * switch writes to. Null on days not part of any period. */
   containingPeriodId: string | null;
+  /** Set when this day sits inside a period without being its start.
+   * Replaces the "period started" switch with context — see the shell. */
+  partOfPeriod: { startDate: string; dayOfPeriod: number } | null;
   initialIsPeriodEnd: boolean;
-  periodError: string | null;
-  addPeriod: (date: string) => Promise<void>;
-  removePeriod: (id: string) => Promise<void>;
-  setPeriodEnd: (id: string, date: string | null) => Promise<void>;
+  /** Whichever write last failed, as an `errors.*` translation key. */
+  saveError: string | null;
+  addPeriod: (date: string) => Promise<string | null>;
+  removePeriod: (id: string) => Promise<boolean>;
+  setPeriodEnd: (id: string, date: string | null) => Promise<boolean>;
   saveLog: (
     date: string,
     partial: { flow: string | null; symptoms: string[]; mood: string | null; notes: string | null },
-  ) => Promise<void>;
+  ) => Promise<boolean>;
 };
 
 function DayDetailsForm({
@@ -140,8 +142,9 @@ function DayDetailsForm({
   initialLog,
   initialPeriodId,
   containingPeriodId,
+  partOfPeriod,
   initialIsPeriodEnd,
-  periodError,
+  saveError,
   addPeriod,
   removePeriod,
   setPeriodEnd,
@@ -178,41 +181,59 @@ function DayDetailsForm({
     setFlow((prev) => (prev === val ? null : (val as FlowLevel)));
   }, []);
 
+  // Each step below bails on failure rather than pressing on, and only a
+  // clean run through all of them shows the success tick and navigates
+  // away. Previously every path landed in a `finally` that did both, so a
+  // rejected write — a duplicate date, an end before its start — looked
+  // exactly like a successful save while the entry was discarded.
   const handleSave = useCallback(async () => {
     setSaving(true);
 
     try {
-      // Manage period toggle
+      let createdPeriodId: string | null = null;
+      let deletedPeriodId: string | null = null;
+
       if (isPeriodStart && !initialPeriodId) {
-        await addPeriod(date);
+        createdPeriodId = await addPeriod(date);
+        if (!createdPeriodId) return;
       } else if (!isPeriodStart && initialPeriodId) {
-        await removePeriod(initialPeriodId);
+        if (!(await removePeriod(initialPeriodId))) return;
+        deletedPeriodId = initialPeriodId;
       }
 
-      // Marking this day as the end records it on the period this day
-      // belongs to; unmarking clears the override so the flow logs infer
-      // the length again. Skipped when the period was just deleted above.
-      const periodStillExists = isPeriodStart || containingPeriodId !== initialPeriodId;
-      if (containingPeriodId && periodStillExists && isPeriodEnd !== initialIsPeriodEnd) {
-        await setPeriodEnd(containingPeriodId, isPeriodEnd ? date : null);
+      // A period started on this very day owns an end marked on it,
+      // ahead of any older period whose window still reaches here.
+      // Resolved after the insert, so it can't name a stale row — and
+      // nulled out when the period it would have pointed at was just
+      // deleted.
+      const endTarget =
+        createdPeriodId ??
+        (containingPeriodId === deletedPeriodId ? null : containingPeriodId);
+
+      // Marking this day as the end records it on that period; unmarking
+      // clears the override so the flow logs infer the length again.
+      if (endTarget && isPeriodEnd !== initialIsPeriodEnd) {
+        if (!(await setPeriodEnd(endTarget, isPeriodEnd ? date : null))) return;
       }
 
       // Always save — saveLog itself deletes the row when every field is
       // empty, so clearing a previously-logged day now actually clears it
       // instead of silently leaving the old data in place (plan item 2b).
-      await saveLog(date, {
+      const logged = await saveLog(date, {
         flow: flow ?? null,
         symptoms,
         mood: mood ?? null,
         notes: notes || null,
       });
-    } finally {
-      setSaving(false);
+      if (!logged) return;
+
       setSaved(true);
       // Wait for a brief moment to show the success state
       setTimeout(() => {
         router.back();
       }, 600);
+    } finally {
+      setSaving(false);
     }
   }, [
     date,
@@ -258,15 +279,30 @@ function DayDetailsForm({
       >
         <Animated.View entering={FadeInDown.duration(400).delay(100).springify()}>
           <Card style={styles.card}>
-            <View style={styles.row}>
-              <Text style={styles.label}>{t('day_details.period_started')}</Text>
-              <Switch
-                value={isPeriodStart}
-                onValueChange={setIsPeriodStart}
-                trackColor={{ true: colors.period, false: colors.border }}
-                thumbColor={colors.surface}
-              />
-            </View>
+            {/* A day already inside a period gets context, not a second
+                "period started" switch — see the shell for why. */}
+            {partOfPeriod ? (
+              <Text style={styles.contextLine}>
+                {t('day_details.part_of_period', {
+                  day: partOfPeriod.dayOfPeriod,
+                  date: formatDisplayDate(
+                    parseISODate(partOfPeriod.startDate),
+                    language,
+                    calendarType,
+                  ),
+                })}
+              </Text>
+            ) : (
+              <View style={styles.row}>
+                <Text style={styles.label}>{t('day_details.period_started')}</Text>
+                <Switch
+                  value={isPeriodStart}
+                  onValueChange={setIsPeriodStart}
+                  trackColor={{ true: colors.period, false: colors.border }}
+                  thumbColor={colors.surface}
+                />
+              </View>
+            )}
 
             {/* Only offered on days that belong to a period — marking an
                 end is meaningless anywhere else. */}
@@ -285,9 +321,6 @@ function DayDetailsForm({
               </>
             ) : null}
 
-            {periodError ? (
-              <Text style={styles.error}>{t(`errors.${periodError}`)}</Text>
-            ) : null}
           </Card>
         </Animated.View>
 
@@ -368,6 +401,12 @@ function DayDetailsForm({
 
         <Animated.View entering={FadeInDown.duration(400).delay(350).springify()}>
           <View style={styles.footer}>
+            {/* Sits with the Save button rather than in the period card:
+                it now reports whichever write failed, and it is the
+                reason the screen stayed open instead of navigating. */}
+            {saveError ? (
+              <Text style={styles.error}>{t(`errors.${saveError}`)}</Text>
+            ) : null}
             <Button
               label={saved ? t('day_details.save') : (saving ? t('day_details.saving') : t('day_details.save'))}
               onPress={handleSave}
@@ -423,6 +462,11 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: Typography.weights.medium,
     color: colors.textPrimary,
   },
+  contextLine: {
+    fontSize: Typography.sizes.md,
+    fontWeight: Typography.weights.medium,
+    color: colors.textSecondary,
+  },
   error: {
     fontSize: Typography.sizes.sm,
     color: colors.danger,
@@ -476,5 +520,6 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   footer: {
     marginTop: Spacing.md,
+    gap: Spacing.sm,
   },
 });
