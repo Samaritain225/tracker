@@ -16,6 +16,7 @@
       "bundleIdentifier": "com.doumbia225.tracker"
     },
     "android": {
+      "allowBackup": false,
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/images/new-adaptive-icon.png"
