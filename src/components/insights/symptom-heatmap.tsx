@@ -6,7 +6,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
@@ -96,7 +96,17 @@ export function SymptomHeatmap({ periods, logs, cycleLength }: Props) {
           ))}
         </View>
 
-        <View style={styles.heatmapScroll}>
+        {/* Genuinely scrollable. The grid is CELL_SIZE + CELL_GAP wide
+            per cycle day after a 52px label column, so even the shortest
+            allowed cycle (21 days) overflows a phone — the luteal half,
+            where most symptom clustering shows up, was cut off and
+            unreachable behind an overflow:hidden View. */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.heatmapScroll}
+          contentContainerStyle={styles.heatmapContent}
+        >
           {/* Column headers — day numbers */}
           <View style={styles.row}>
             {Array.from({ length: showDays }, (_, i) => (
@@ -134,7 +144,7 @@ export function SymptomHeatmap({ periods, logs, cycleLength }: Props) {
               })}
             </Animated.View>
           ))}
-        </View>
+        </ScrollView>
       </View>
 
       <Text style={styles.legend}>
@@ -179,8 +189,12 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   heatmapScroll: {
     flex: 1,
+  },
+  // The rows stack vertically inside the horizontal scroller, so the
+  // content container is what carries the column layout and row gap.
+  heatmapContent: {
+    flexDirection: 'column',
     gap: CELL_GAP,
-    overflow: 'hidden',
   },
   row: {
     flexDirection: 'row',
