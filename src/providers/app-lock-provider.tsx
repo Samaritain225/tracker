@@ -2,6 +2,31 @@
  * AppLockProvider — biometric authentication gate.
  * When app lock is enabled in settings, requires FaceID/TouchID
  * on app resume from background. Shows a full-screen overlay when locked.
+ *
+ * ## What this is for
+ *
+ * Deliberately scoped to keeping someone who picks up an unlocked phone
+ * out of the app — a curious partner, a colleague, a child. That is the
+ * whole intent, and the Settings copy promises exactly that and no more
+ * ("Require Face ID or fingerprint to open the app").
+ *
+ * It is explicitly NOT protection against someone with real access to
+ * the device or its filesystem. Three things follow from that, all
+ * chosen rather than overlooked — do not treat them as bugs to fix
+ * without revisiting the scope decision first:
+ *
+ *   - The lock is a React overlay, so it cannot reliably blank the OS
+ *     app-switcher snapshot. On Android only FLAG_SECURE does that; on
+ *     iOS the snapshot is taken around willResignActive, which races the
+ *     React commit. Screenshots are likewise unblocked.
+ *   - There is no PIN fallback, so the lock is exactly as strong as the
+ *     device biometric and no stronger.
+ *   - The SQLite file is plaintext on disk. Anyone who can read the app
+ *     sandbox can read the data regardless of this gate. (`allowBackup`
+ *     is off in app.json so it at least does not leave the device.)
+ *
+ * Raising any of these means raising all of them — a FLAG_SECURE window
+ * over an unencrypted database buys very little on its own.
  */
 
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
@@ -43,7 +68,16 @@ export function AppLockProvider({ children }: Props) {
       const isEnrolled = await LocalAuthentication.isEnrolledAsync();
 
       if (!hasHardware || !isEnrolled) {
-        // Can't authenticate — unlock anyway to avoid being permanently locked out
+        // Fails open, deliberately. A user who enables the lock and later
+        // removes their fingerprint or Face ID would otherwise be shut out
+        // of their own history with no recovery path — there is no PIN
+        // fallback and no account to reset against, so a fail-closed
+        // branch here is unrecoverable data loss.
+        //
+        // The cost is that removing biometrics silently disables the
+        // lock. That is an acceptable trade at this threat model (see the
+        // file header); it would not be if the lock were ever meant to
+        // stop someone holding the device.
         setIsLocked(false);
         return;
       }
@@ -76,7 +110,15 @@ export function AppLockProvider({ children }: Props) {
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (lockEnabled) {
-        // Lock immediately to obscure OS app switcher snapshots and handle screen off
+        // Lock on the way out rather than on the way back in, so the app
+        // is already locked whenever it next becomes visible — including
+        // after the screen simply switched off.
+        //
+        // This does NOT reliably hide the app-switcher snapshot, despite
+        // being the natural place to expect that: the overlay is a React
+        // view and the OS captures its thumbnail without waiting for a
+        // render. Blanking that thumbnail needs FLAG_SECURE, which is out
+        // of scope — see the file header.
         if (nextAppState === 'inactive' || nextAppState === 'background') {
           setIsLocked(true);
         }
