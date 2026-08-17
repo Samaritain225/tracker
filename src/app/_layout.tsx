@@ -13,6 +13,7 @@ import { Stack } from 'expo-router';
 import { ThemeProvider as NavThemeProvider, DarkTheme, DefaultTheme } from '@react-navigation/native';
 
 import { DatabaseProvider } from '@/providers/database-provider';
+import { LocaleProvider } from '@/providers/locale-provider';
 import { ThemeProvider, useTheme } from '@/providers/theme-provider';
 import { AppLockProvider } from '@/providers/app-lock-provider';
 import { RemindersProvider } from '@/providers/reminders-provider';
@@ -67,13 +68,15 @@ function AppContent() {
 export default function RootLayout() {
   return (
     <DatabaseProvider>
-      <ThemeProvider>
-        <AppLockProvider>
-          <RemindersProvider>
-            <AppContent />
-          </RemindersProvider>
-        </AppLockProvider>
-      </ThemeProvider>
+      <LocaleProvider>
+        <ThemeProvider>
+          <AppLockProvider>
+            <RemindersProvider>
+              <AppContent />
+            </RemindersProvider>
+          </AppLockProvider>
+        </ThemeProvider>
+      </LocaleProvider>
     </DatabaseProvider>
   );
 }
