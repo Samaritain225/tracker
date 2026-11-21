@@ -111,7 +111,7 @@ day-details used to show a green success tick over a discarded entry. Match this
 when adding a mutator.
 
 Cycle maths lives in `src/utils/` as pure functions with no database access, and
-is the only part of the app under test (`npx jest`, 91 tests). Screens and hooks
+is the only part of the app under test (`npx jest`). Screens and hooks
 delegate to it so Home and Insights can never disagree — `computeCycleLength` is
 the single source of truth for average cycle length, and `computePeriodDuration`
 for how long a given period ran.
