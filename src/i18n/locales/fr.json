@@ -68,7 +68,7 @@
     "notifications_denied": "Les permissions de notification ont été refusées. Activez-les dans les paramètres.",
     "data_title": "Vos données",
     "backup": "Sauvegarder mes données",
-    "backup_note": "Le fichier de sauvegarde n'est pas chiffré : toute personne qui l'a peut le lire. Gardez-le dans un endroit privé.",
+    "backup_note": "Le fichier de sauvegarde n'est pas chiffré : toute personne qui l'a peut le lire. Il contient vos photos de grossesse et peut donc être volumineux. Gardez-le dans un endroit privé.",
     "restore": "Restaurer une sauvegarde",
     "restore_title": "Restaurer cette sauvegarde ?",
     "restore_contents": "Ce fichier contient {{periods}} et {{days}}, du {{from}} au {{to}}.",
@@ -101,7 +101,11 @@
     "delete_backup_first": "Sauvegarder d'abord",
     "delete_confirm": "Tout supprimer",
     "delete_done": "Toutes vos données ont été supprimées.",
-    "delete_failed": "La suppression a échoué. Rien n'a été modifié."
+    "delete_failed": "La suppression a échoué. Rien n'a été modifié.",
+    "restore_pregnancies_one": "Il contient aussi 1 grossesse, avec ses rendez-vous, moments et photos.",
+    "restore_pregnancies_other": "Il contient aussi {{count}} grossesses, avec leurs rendez-vous, moments et photos.",
+    "restore_missing_photos_one": "1 photo n'était pas dans le fichier et n'a pas pu être restaurée.",
+    "restore_missing_photos_other": "{{count}} photos n'étaient pas dans le fichier et n'ont pas pu être restaurées."
   },
   "legend": {
     "period": "Règles",

@@ -34,17 +34,12 @@ import { requestNotificationPermissions } from '@/services/notifications';
 import {
   applyRestorePlan,
   deleteAllData,
-  pickBackupText,
+  pickBackupFile,
+  readAllData,
+  shareBackup,
   shareTextFile,
 } from '@/services/user-data';
-import {
-  backupFileName,
-  buildBackup,
-  parseBackup,
-  planRestore,
-  serializeBackup,
-  summarizeBackup,
-} from '@/utils/backup';
+import { parseBackup, planRestore, summarizeBackup } from '@/utils/backup';
 import { buildCsv } from '@/utils/csv';
 import { formatDisplayDate, parseISODate, toISODate } from '@/utils/date';
 
@@ -155,15 +150,18 @@ export default function SettingsScreen() {
 
   const handleBackup = useCallback(async () => {
     setBusy('backup');
-    const now = new Date();
-    await shareFile(
-      backupFileName(now),
-      serializeBackup(buildBackup(periods, logs, settings, now)),
-      'application/json',
-      t('settings.backup'),
-    );
-    setBusy(null);
-  }, [periods, logs, settings, shareFile, t]);
+    try {
+      const outcome = await shareBackup(new Date(), t('settings.backup'));
+      if (outcome === 'unavailable') {
+        Alert.alert(t('settings.error_title'), t('settings.share_unavailable'));
+      }
+    } catch (e) {
+      console.error(e);
+      Alert.alert(t('settings.error_title'), t('settings.file_error'));
+    } finally {
+      setBusy(null);
+    }
+  }, [t]);
 
   const handleExportCsv = useCallback(async () => {
     setBusy('csv');
@@ -178,9 +176,9 @@ export default function SettingsScreen() {
 
   const handleRestore = useCallback(async () => {
     setBusy('restore');
-    let text: string | null;
+    let picked: Awaited<ReturnType<typeof pickBackupFile>>;
     try {
-      text = await pickBackupText();
+      picked = await pickBackupFile();
     } catch (e) {
       console.error(e);
       setBusy(null);
@@ -188,34 +186,51 @@ export default function SettingsScreen() {
       return;
     }
     setBusy(null);
-    if (text === null) return;
+    if (picked === null) return;
+    if (!picked.ok) {
+      Alert.alert(t('settings.restore'), t('settings.restore_error_invalid'));
+      return;
+    }
+    const photos = picked.photos;
 
-    const parsed = parseBackup(text);
+    const parsed = parseBackup(picked.json);
     if (!parsed.ok) {
       Alert.alert(t('settings.restore'), t(`settings.restore_error_${parsed.error}`));
       return;
     }
 
+    // Planned against what is in the database right now, not what this
+    // screen last rendered.
+    const existing = readAllData();
     const summary = summarizeBackup(parsed.backup);
-    const plan = planRestore({ periods, logs }, parsed.backup);
+    const plan = planRestore(existing, parsed.backup);
 
-    const contents =
+    const contents = [
       summary.firstDate && summary.lastDate
         ? t('settings.restore_contents', {
             ...describeCounts(summary.periodCount, summary.logCount),
             from: formatDisplayDate(parseISODate(summary.firstDate), locale, calendarType),
             to: formatDisplayDate(parseISODate(summary.lastDate), locale, calendarType),
           })
-        : t('settings.restore_contents_empty');
+        : t('settings.restore_contents_empty'),
+      summary.pregnancyCount > 0
+        ? t('settings.restore_pregnancies', { count: summary.pregnancyCount })
+        : null,
+    ]
+      .filter(Boolean)
+      .join(' ');
 
     const nothingToAdd =
-      plan.periodsToAdd.length === 0 && plan.logsToAdd.length === 0 && !plan.settingsToApply;
+      plan.periodsToAdd.length === 0 &&
+      plan.logsToAdd.length === 0 &&
+      plan.pregnanciesToAdd.length === 0 &&
+      !plan.settingsToApply;
     if (nothingToAdd) {
       Alert.alert(t('settings.restore'), `${contents}\n\n${t('settings.restore_nothing')}`);
       return;
     }
 
-    const kept = plan.skippedPeriods + plan.skippedLogs;
+    const kept = plan.skippedPeriods + plan.skippedLogs + plan.skippedPregnancies;
     const details = [
       contents,
       t('settings.restore_adds', describeCounts(plan.periodsToAdd.length, plan.logsToAdd.length)),
@@ -229,10 +244,15 @@ export default function SettingsScreen() {
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('settings.restore_confirm'),
-        onPress: () => {
+        onPress: async () => {
           try {
-            applyRestorePlan(plan);
-            Alert.alert(t('settings.restore'), t('settings.restore_done'));
+            const { missingPhotos } = await applyRestorePlan(plan, photos);
+            Alert.alert(
+              t('settings.restore'),
+              missingPhotos > 0
+                ? `${t('settings.restore_done')} ${t('settings.restore_missing_photos', { count: missingPhotos })}`
+                : t('settings.restore_done'),
+            );
           } catch (e) {
             console.error(e);
             Alert.alert(t('settings.error_title'), t('settings.restore_error_failed'));
@@ -240,7 +260,7 @@ export default function SettingsScreen() {
         },
       },
     ]);
-  }, [periods, logs, locale, calendarType, describeCounts, t]);
+  }, [locale, calendarType, describeCounts, t]);
 
   const handleDeleteAll = useCallback(() => {
     Alert.alert(

@@ -68,7 +68,7 @@
     "notifications_denied": "Notification permissions were denied. Enable them in your device settings.",
     "data_title": "Your data",
     "backup": "Back up my data",
-    "backup_note": "The backup file isn't encrypted: anyone who has it can read it. Keep it somewhere private.",
+    "backup_note": "The backup file isn't encrypted: anyone who has it can read it. It includes your pregnancy photos, so it can be large. Keep it somewhere private.",
     "restore": "Restore from backup",
     "restore_title": "Restore this backup?",
     "restore_contents": "This file holds {{periods}} and {{days}}, from {{from}} to {{to}}.",
@@ -101,7 +101,11 @@
     "delete_backup_first": "Back up first",
     "delete_confirm": "Delete everything",
     "delete_done": "All your data has been deleted.",
-    "delete_failed": "Deleting failed. Nothing was changed."
+    "delete_failed": "Deleting failed. Nothing was changed.",
+    "restore_pregnancies_one": "It also holds 1 pregnancy, with its visits, moments and photos.",
+    "restore_pregnancies_other": "It also holds {{count}} pregnancies, with their visits, moments and photos.",
+    "restore_missing_photos_one": "1 photo wasn't in the file and couldn't be restored.",
+    "restore_missing_photos_other": "{{count}} photos weren't in the file and couldn't be restored."
   },
   "legend": {
     "period": "Period",
