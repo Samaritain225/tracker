@@ -7,7 +7,7 @@
  * file and database work those decisions call for.
  */
 
-import { eq } from 'drizzle-orm';
+import { eq, isNotNull } from 'drizzle-orm';
 import * as DocumentPicker from 'expo-document-picker';
 import { cacheDirectory, readAsStringAsync, writeAsStringAsync } from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -110,8 +110,13 @@ export function applyRestorePlan(plan: RestorePlan): void {
  */
 export function deleteAllData(): void {
   db.transaction((tx) => {
-    tx.delete(dailyLogs).run();
-    tx.delete(periods).run();
+    // The always-true WHERE is load-bearing. A bare DELETE lets SQLite
+    // use its truncate optimisation, which skips the per-row change
+    // notifications the live queries listen for: the rows were gone from
+    // the database while every screen kept showing them, and a restore
+    // straight afterwards reported everything as "already on this phone".
+    tx.delete(dailyLogs).where(isNotNull(dailyLogs.id)).run();
+    tx.delete(periods).where(isNotNull(periods.id)).run();
     tx.update(settings)
       .set({
         calendarType: 'gregorian',
