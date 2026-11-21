@@ -53,6 +53,8 @@ const settingsRow: Settings = {
   theme: 'dark',
   appLockEnabled: 1,
   remindersEnabled: 1,
+  showStarSign: 1,
+  pregnancyPromptDismissedFor: null,
 };
 
 function sampleBackup(): Backup {

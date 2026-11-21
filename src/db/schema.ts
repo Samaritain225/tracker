@@ -5,7 +5,7 @@
  * IDs use text UUIDs for portability.
  */
 
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 /**
  * Generates a UUID v4 string.
@@ -44,6 +44,14 @@ export const settings = sqliteTable('settings', {
   theme: text('theme').notNull().default('system'),
   appLockEnabled: integer('app_lock_enabled').notNull().default(0),
   remindersEnabled: integer('reminders_enabled').notNull().default(0),
+  /** Whether pregnancy screens show the baby's likely star sign. */
+  showStarSign: integer('show_star_sign').notNull().default(1),
+  /**
+   * The period start date the user answered "Not pregnant" for, so the
+   * late-period prompt stays hidden for that cycle and comes back for
+   * the next one. Null when never dismissed.
+   */
+  pregnancyPromptDismissedFor: text('pregnancy_prompt_dismissed_for'),
 });
 
 export const dailyLogs = sqliteTable('daily_logs', {
@@ -57,12 +65,67 @@ export const dailyLogs = sqliteTable('daily_logs', {
   updatedAt: integer('updated_at').$defaultFn(() => Date.now()),
 });
 
+/**
+ * One row per pregnancy. Active while `endedOn` is null. Dates are
+ * Gregorian ISO strings like everything else; the effective due date is
+ * `scanDueDate` when set, otherwise last period date + 280 days.
+ */
+export const pregnancies = sqliteTable('pregnancies', {
+  id: text('id').primaryKey().$defaultFn(generateId),
+  lastPeriodDate: text('last_period_date').notNull(),
+  scanDueDate: text('scan_due_date'),
+  startedAt: integer('started_at').$defaultFn(() => Date.now()),
+  endedOn: text('ended_on'),
+  /** 'birth' | 'loss', null while the pregnancy is active. */
+  outcome: text('outcome'),
+  babyName: text('baby_name'),
+  /** Asked during recovery after a birth; null until answered. */
+  breastfeeding: integer('breastfeeding'),
+  createdAt: integer('created_at').$defaultFn(() => Date.now()),
+});
+
+export const pregnancyVisits = sqliteTable('pregnancy_visits', {
+  id: text('id').primaryKey().$defaultFn(generateId),
+  pregnancyId: text('pregnancy_id')
+    .notNull()
+    .references(() => pregnancies.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
+  /** 'checkup' | 'ultrasound' | 'blood_test' | 'other' */
+  kind: text('kind').notNull(),
+  title: text('title'),
+  weightKg: real('weight_kg'),
+  systolic: integer('systolic'),
+  diastolic: integer('diastolic'),
+  notes: text('notes'),
+  createdAt: integer('created_at').$defaultFn(() => Date.now()),
+});
+
+export const pregnancyMoments = sqliteTable('pregnancy_moments', {
+  id: text('id').primaryKey().$defaultFn(generateId),
+  pregnancyId: text('pregnancy_id')
+    .notNull()
+    .references(() => pregnancies.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
+  /** 'positive_test' | 'kick' | 'due_date_change' | 'photo' | 'note' */
+  kind: text('kind').notNull(),
+  text: text('text'),
+  /** File name inside the app's pregnancy-photos folder. */
+  photoFileName: text('photo_file_name'),
+  createdAt: integer('created_at').$defaultFn(() => Date.now()),
+});
+
 /** Inferred types for use throughout the app */
 export type Period = typeof periods.$inferSelect;
 export type NewPeriod = typeof periods.$inferInsert;
 export type Settings = typeof settings.$inferSelect;
 export type DailyLog = typeof dailyLogs.$inferSelect;
 export type NewDailyLog = typeof dailyLogs.$inferInsert;
+export type Pregnancy = typeof pregnancies.$inferSelect;
+export type PregnancyVisit = typeof pregnancyVisits.$inferSelect;
+export type PregnancyMoment = typeof pregnancyMoments.$inferSelect;
+export type PregnancyOutcome = 'birth' | 'loss';
+export type VisitKind = 'checkup' | 'ultrasound' | 'blood_test' | 'other';
+export type MomentKind = 'positive_test' | 'kick' | 'due_date_change' | 'photo' | 'note';
 
 /** dailyLogs.flow vocabulary — see schema comment on that column. */
 export type FlowLevel = 'spotting' | 'light' | 'medium' | 'heavy';
