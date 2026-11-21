@@ -58,6 +58,7 @@ period, then back to period tracking, and the Journey is kept. Agreed order of
 the four projects: foundations, pregnancy mode, Islamic option, extras. Existing
 user data must survive every change. Expo should be upgraded from SDK 55 to the
 latest (SDK 58 as of 2026-11-21, React Native 0.88). Delivery is one pull request
-per stage, merged in turn. Short designs for stage 2 (Expo upgrade and pipeline
-checks) and stage 3 (foundations) are in `docs/superpowers/specs/`, uncommitted,
-waiting on approval. Nothing is built yet.
+per stage, merged in turn. Stage 2 (Expo SDK 58 and pipeline checks) is on
+`chore/expo-sdk-58`, stacked on stage 1. Stage 3 (foundations) is designed and
+approved in `docs/superpowers/specs/2026-11-21-foundations-design.md`, not
+started. Nothing is built yet.
