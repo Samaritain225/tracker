@@ -110,6 +110,12 @@ distinguished from a successful one by an awaiting caller, which is exactly how
 day-details used to show a green success tick over a discarded entry. Match this
 when adding a mutator.
 
+Never write a bare `db.delete(table)` with no `where`. SQLite's truncate
+optimisation then skips the change notifications `useLiveQuery` listens for, so
+the rows vanish from the database while every screen keeps showing them. Add an
+always-true condition such as `where(isNotNull(table.id))`; `deleteAllData` in
+`src/services/user-data.ts` does this.
+
 Cycle maths lives in `src/utils/` as pure functions with no database access, and
 is the only part of the app under test (`npx jest`). Screens and hooks
 delegate to it so Home and Insights can never disagree — `computeCycleLength` is
