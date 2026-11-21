@@ -18,6 +18,8 @@ import { SymptomHeatmap } from '@/components/insights/symptom-heatmap';
 import { usePeriods } from '@/hooks/use-periods';
 import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { useSettings } from '@/hooks/use-settings';
+import { usePregnancies } from '@/hooks/use-pregnancies';
+import { pregnancySpans } from '@/utils/pregnancy';
 import { useToday } from '@/hooks/use-today';
 import { DEFAULT_PERIOD_DURATION_DAYS } from '@/constants/cycle';
 import {
@@ -33,19 +35,23 @@ export default function InsightsScreen() {
   const { periods } = usePeriods();
   const { logs } = useDailyLogs();
   const { settings } = useSettings();
+  const { pregnancies: pregnancyList } = usePregnancies();
   const { colors } = useTheme();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const todayISO = useToday();
 
   const fallbackCycle = settings?.fallbackCycleDays ?? 28;
+  // Gaps that contain a pregnancy aren't cycles, so they are left out of
+  // every average here exactly as on Home.
+  const spans = useMemo(() => pregnancySpans(pregnancyList), [pregnancyList]);
 
   const sortedDates = useMemo(
     () => periods.map((p) => p.startDate).sort(),
     [periods],
   );
   const computedCycleLength = useMemo(() => {
-    return computeCycleLength(sortedDates, fallbackCycle);
-  }, [sortedDates, fallbackCycle]);
+    return computeCycleLength(sortedDates, fallbackCycle, spans);
+  }, [sortedDates, fallbackCycle, spans]);
 
   // 1. Average Cycle Length & Variance
   // Delegates to the same computeCycleLength/computeCycleVariance the
@@ -54,8 +60,8 @@ export default function InsightsScreen() {
   // Show a dash rather than the settings default dressed up as a
   // measurement — the same reasoning computeAveragePeriodLength applies
   // when it refuses to average a defaulted period length.
-  const avgCycle = hasPlausibleCycleData(sortedDates) ? computedCycleLength : null;
-  const variance = useMemo(() => computeCycleVariance(sortedDates), [sortedDates]);
+  const avgCycle = hasPlausibleCycleData(sortedDates, spans) ? computedCycleLength : null;
+  const variance = useMemo(() => computeCycleVariance(sortedDates, spans), [sortedDates, spans]);
 
   // 2. Average Period Length.
   // Delegates to computeAveragePeriodLength so this uses the same

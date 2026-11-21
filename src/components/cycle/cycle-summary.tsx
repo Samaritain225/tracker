@@ -27,9 +27,12 @@ export function CycleSummary({ cycleInfo }: Props) {
     ? t('home.days_late', { count: cycleInfo.daysLate })
     : formatDaysLabel(cycleInfo.daysUntilNextPeriod, t);
   const ovulationValue = isLate ? '—' : formatDaysLabel(cycleInfo.daysUntilOvulation, t);
-  const cycleLengthSub = cycleInfo.cycleSource === 'calculated'
-    ? t('home.calculated')
-    : t('home.estimated');
+  const cycleLengthSub =
+    cycleInfo.cycleSource === 'calculated'
+      ? t('home.calculated')
+      : cycleInfo.cycleSource === 'after_pregnancy'
+        ? t('home.after_pregnancy')
+        : t('home.estimated');
 
   return (
     <View style={styles.row}>

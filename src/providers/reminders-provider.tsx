@@ -14,6 +14,7 @@ import React from 'react';
 import { useCycleCalc } from '@/hooks/use-cycle-calc';
 import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { usePeriods } from '@/hooks/use-periods';
+import { usePregnancies } from '@/hooks/use-pregnancies';
 import { useReminders } from '@/hooks/use-reminders';
 import { useSettings } from '@/hooks/use-settings';
 import { useToday } from '@/hooks/use-today';
@@ -27,7 +28,10 @@ export function RemindersProvider({ children }: Props) {
   const { logs } = useDailyLogs();
   const { settings } = useSettings();
   const todayISO = useToday();
-  const cycleInfo = useCycleCalc(periods, logs, settings, todayISO);
+  const { pregnancies } = usePregnancies();
+  // No predictions exist while pregnant or recovering, so period
+  // reminders stop on their own; the daily check-in carries on.
+  const cycleInfo = useCycleCalc(periods, logs, settings, todayISO, pregnancies);
 
   useReminders({
     remindersEnabled: !!settings?.remindersEnabled,

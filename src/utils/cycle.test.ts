@@ -606,3 +606,46 @@ describe('buildCycleWindows — overdue period', () => {
     expect(windows.find((w) => w.isPrediction)?.start).toBe('2026-02-26');
   });
 });
+
+describe('cycle length around a pregnancy', () => {
+  // Regular 28-day cycles, then a pregnancy (last period 2026-07-04,
+  // birth 2027-04-08), then the first period back on 2027-06-20.
+  const starts = ['2026-04-11', '2026-05-09', '2026-06-06', '2026-07-04', '2027-06-20'];
+  const spans = [{ start: '2026-07-04', end: '2027-04-08' }];
+
+  it('leaves the gap containing the pregnancy out of the average', () => {
+    expect(computeCycleLength(starts, 30, spans)).toBe(28);
+    expect(hasPlausibleCycleData(starts, spans)).toBe(true);
+  });
+
+  it('would otherwise average in a year-long gap when it is the only recent one', () => {
+    // Just the period before and the first one after: without the span,
+    // the long-gap rule keeps the 351-day "cycle".
+    const onlyAround = ['2026-07-04', '2027-06-20'];
+    expect(computeCycleLength(onlyAround, 30)).toBe(351);
+    expect(computeCycleLength(onlyAround, 30, spans)).toBe(30);
+    expect(hasPlausibleCycleData(onlyAround, spans)).toBe(false);
+  });
+
+  it('keeps the gap just before the pregnancy', () => {
+    // 2026-06-06 to 2026-07-04 ends where the pregnancy starts.
+    expect(computeCycleVariance(starts, spans)).toBe(0);
+  });
+
+  it('drops every gap after the start of a pregnancy still in progress', () => {
+    const active = [{ start: '2026-07-04', end: '9999-12-31' }];
+    expect(computeCycleLength([...starts.slice(0, 4), '2026-08-20'], 30, active)).toBe(28);
+  });
+});
+
+describe('buildCycleWindows without predictions', () => {
+  it('keeps logged periods and projects nothing', () => {
+    const periods = [
+      { startDate: '2026-06-06', endDate: '2026-06-10' },
+      { startDate: '2026-07-04', endDate: '2026-07-08' },
+    ];
+    const windows = buildCycleWindows(periods, new Set(), 28, 5, '2026-11-21', false);
+    expect(windows).toHaveLength(2);
+    expect(windows.every((w) => !w.isPrediction)).toBe(true);
+  });
+});
