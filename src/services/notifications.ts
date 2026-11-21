@@ -5,8 +5,9 @@
 
 import * as Notifications from 'expo-notifications';
 
-// Notification identifiers for tracking
-const PERIOD_REMINDER_ID = 'period-reminder';
+import { PERIOD_REMINDER_COUNT } from '@/utils/reminders';
+
+// Notification identifier for the daily check-in.
 const DAILY_LOG_ID = 'daily-log-reminder';
 
 /**
@@ -22,44 +23,57 @@ export async function requestNotificationPermissions(): Promise<boolean> {
   return (request as any).granted;
 }
 
-/** Local hour the period reminder fires at, on the reminder day. */
-const PERIOD_REMINDER_HOUR = 9;
+/**
+ * Identifier for the reminder of the Nth upcoming period. Each upcoming
+ * period gets its own, so rescheduling replaces them one for one.
+ */
+function periodReminderId(index: number): string {
+  return `period-reminder-${index}`;
+}
 
 /**
- * Schedule a notification at 09:00 local time, 2 days before the
- * predicted next period. Cancels any existing period reminder first.
- *
- * Uses a DATE trigger fixed to that morning rather than a TIME_INTERVAL
- * countdown in seconds — the latter fires whatever time of day the app
- * happened to be open when it was scheduled, which could be 2am.
+ * The single identifier used before reminders covered several periods.
+ * Still cancelled on every reschedule, so someone upgrading from that
+ * version doesn't get the old reminder on top of the new ones.
  */
-export async function schedulePeriodReminder(
-  nextPeriodDate: Date,
+const LEGACY_PERIOD_REMINDER_ID = 'period-reminder';
+
+/**
+ * Replaces every scheduled period reminder with one at each of the
+ * given moments (see computePeriodReminderDates for how they are chosen).
+ *
+ * Uses DATE triggers fixed to those mornings rather than TIME_INTERVAL
+ * countdowns in seconds — the latter fire at whatever time of day the
+ * app happened to be open when they were scheduled, which could be 2am.
+ */
+export async function schedulePeriodReminders(
+  reminderDates: Date[],
   title: string,
   body: string,
 ): Promise<void> {
-  // Cancel existing period reminder
-  await cancelNotification(PERIOD_REMINDER_ID);
+  await cancelPeriodReminders();
 
-  const reminderDate = new Date(nextPeriodDate);
-  reminderDate.setDate(reminderDate.getDate() - 2);
-  reminderDate.setHours(PERIOD_REMINDER_HOUR, 0, 0, 0);
+  for (let i = 0; i < reminderDates.length; i++) {
+    await Notifications.scheduleNotificationAsync({
+      identifier: periodReminderId(i),
+      content: {
+        title,
+        body,
+        sound: true,
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: reminderDates[i],
+      },
+    });
+  }
+}
 
-  // Don't schedule if the reminder date is already in the past
-  if (reminderDate <= new Date()) return;
-
-  await Notifications.scheduleNotificationAsync({
-    identifier: PERIOD_REMINDER_ID,
-    content: {
-      title,
-      body,
-      sound: true,
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DATE,
-      date: reminderDate,
-    },
-  });
+async function cancelPeriodReminders(): Promise<void> {
+  await cancelNotification(LEGACY_PERIOD_REMINDER_ID);
+  for (let i = 0; i < PERIOD_REMINDER_COUNT; i++) {
+    await cancelNotification(periodReminderId(i));
+  }
 }
 
 /**
@@ -105,7 +119,7 @@ async function cancelNotification(identifier: string): Promise<void> {
  * other scheduled notification on the device too, not just this app's.
  */
 export async function cancelAllReminders(): Promise<void> {
-  await cancelNotification(PERIOD_REMINDER_ID);
+  await cancelPeriodReminders();
   await cancelNotification(DAILY_LOG_ID);
 }
 
