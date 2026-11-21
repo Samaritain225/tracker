@@ -8,8 +8,6 @@ import Slider from '@react-native-community/slider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
-import { documentDirectory, writeAsStringAsync } from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
 import * as LocalAuthentication from 'expo-local-authentication';
 
 import { Spacing, Typography } from '@/constants/theme';
@@ -29,6 +27,22 @@ import { useSettings } from '@/hooks/use-settings';
 import { usePeriods } from '@/hooks/use-periods';
 import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { requestNotificationPermissions } from '@/services/notifications';
+import {
+  applyRestorePlan,
+  deleteAllData,
+  pickBackupText,
+  shareTextFile,
+} from '@/services/user-data';
+import {
+  backupFileName,
+  buildBackup,
+  parseBackup,
+  planRestore,
+  serializeBackup,
+  summarizeBackup,
+} from '@/utils/backup';
+import { buildCsv } from '@/utils/csv';
+import { formatDisplayDate, parseISODate, toISODate } from '@/utils/date';
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -47,7 +61,7 @@ export default function SettingsScreen() {
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const { periods } = usePeriods();
   const { logs } = useDailyLogs();
-  const [exporting, setExporting] = useState(false);
+  const [busy, setBusy] = useState<'backup' | 'restore' | 'csv' | null>(null);
 
   const [localCycleDays, setLocalCycleDays] = useState(
     settings?.fallbackCycleDays ?? 28,
@@ -82,56 +96,145 @@ export default function SettingsScreen() {
     [updatePeriodDuration],
   );
 
-  const handleExport = useCallback(async () => {
+  const locale = (settings?.language as 'fr' | 'en') ?? 'fr';
+  const calendarType = (settings?.calendarType as 'gregorian' | 'hijri') ?? 'gregorian';
+
+  /** "3 periods and 40 logged days", in the user's language. */
+  const describeCounts = useCallback(
+    (periodCount: number, dayCount: number) => ({
+      periods: t('settings.periods_count', { count: periodCount }),
+      days: t('settings.days_count', { count: dayCount }),
+    }),
+    [t],
+  );
+
+  const shareFile = useCallback(
+    async (fileName: string, contents: string, mimeType: string, title: string) => {
+      try {
+        const outcome = await shareTextFile(fileName, contents, mimeType, title);
+        if (outcome === 'unavailable') {
+          Alert.alert(t('settings.error_title'), t('settings.share_unavailable'));
+        }
+      } catch (e) {
+        console.error(e);
+        Alert.alert(t('settings.error_title'), t('settings.file_error'));
+      }
+    },
+    [t],
+  );
+
+  const handleBackup = useCallback(async () => {
+    setBusy('backup');
+    const now = new Date();
+    await shareFile(
+      backupFileName(now),
+      serializeBackup(buildBackup(periods, logs, settings, now)),
+      'application/json',
+      t('settings.backup'),
+    );
+    setBusy(null);
+  }, [periods, logs, settings, shareFile, t]);
+
+  const handleExportCsv = useCallback(async () => {
+    setBusy('csv');
+    await shareFile(
+      `lumi-export-${toISODate(new Date())}.csv`,
+      buildCsv(periods, logs),
+      'text/csv',
+      t('settings.export_csv'),
+    );
+    setBusy(null);
+  }, [periods, logs, shareFile, t]);
+
+  const handleRestore = useCallback(async () => {
+    setBusy('restore');
+    let text: string | null;
     try {
-      setExporting(true);
-      
-      let csv = 'Date,Type,Flow,Symptoms,Mood,Notes\n';
-      
-      // Combine dates
-      const allDates = new Set([
-        ...periods.map(p => p.startDate),
-        ...logs.map(l => l.date)
-      ]);
-      
-      const sortedDates = Array.from(allDates).sort();
-      
-      for (const d of sortedDates) {
-        const isPeriod = periods.some(p => p.startDate === d);
-        const log = logs.find(l => l.date === d);
-        
-        const type = isPeriod ? 'Period Start' : '';
-        const flow = log?.flow || '';
-        const sym = log?.symptoms?.join(';') || '';
-        const mood = log?.mood || '';
-        // Escape quotes and wrap notes in quotes for CSV
-        const notes = log?.notes ? `"${log.notes.replace(/"/g, '""')}"` : '';
-        
-        csv += `${d},${type},${flow},${sym},${mood},${notes}\n`;
-      }
-      if (!documentDirectory) {
-        throw new Error('Document directory inside FileSystem is not available');
-      }
-      
-      const filename = `${documentDirectory}cycle_data_export.csv`;
-      await writeAsStringAsync(filename, csv, { encoding: 'utf8' });
-      
-      if (!(await Sharing.isAvailableAsync())) {
-        Alert.alert('Error', 'Sharing is not available on this device');
-        return;
-      }
-      
-      await Sharing.shareAsync(filename, {
-        mimeType: 'text/csv'
-      });
-      
+      text = await pickBackupText();
     } catch (e) {
       console.error(e);
-      Alert.alert('Error', 'Failed to export data');
-    } finally {
-      setExporting(false);
+      setBusy(null);
+      Alert.alert(t('settings.error_title'), t('settings.restore_error_invalid'));
+      return;
     }
-  }, [periods, logs]);
+    setBusy(null);
+    if (text === null) return;
+
+    const parsed = parseBackup(text);
+    if (!parsed.ok) {
+      Alert.alert(t('settings.restore'), t(`settings.restore_error_${parsed.error}`));
+      return;
+    }
+
+    const summary = summarizeBackup(parsed.backup);
+    const plan = planRestore({ periods, logs }, parsed.backup);
+
+    const contents =
+      summary.firstDate && summary.lastDate
+        ? t('settings.restore_contents', {
+            ...describeCounts(summary.periodCount, summary.logCount),
+            from: formatDisplayDate(parseISODate(summary.firstDate), locale, calendarType),
+            to: formatDisplayDate(parseISODate(summary.lastDate), locale, calendarType),
+          })
+        : t('settings.restore_contents_empty');
+
+    const nothingToAdd =
+      plan.periodsToAdd.length === 0 && plan.logsToAdd.length === 0 && !plan.settingsToApply;
+    if (nothingToAdd) {
+      Alert.alert(t('settings.restore'), `${contents}\n\n${t('settings.restore_nothing')}`);
+      return;
+    }
+
+    const kept = plan.skippedPeriods + plan.skippedLogs;
+    const details = [
+      contents,
+      t('settings.restore_adds', describeCounts(plan.periodsToAdd.length, plan.logsToAdd.length)),
+      kept > 0 ? t('settings.restore_kept', { count: kept }) : null,
+      plan.settingsToApply ? t('settings.restore_settings') : null,
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+
+    Alert.alert(t('settings.restore_title'), details, [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('settings.restore_confirm'),
+        onPress: () => {
+          try {
+            applyRestorePlan(plan);
+            Alert.alert(t('settings.restore'), t('settings.restore_done'));
+          } catch (e) {
+            console.error(e);
+            Alert.alert(t('settings.error_title'), t('settings.restore_error_failed'));
+          }
+        },
+      },
+    ]);
+  }, [periods, logs, locale, calendarType, describeCounts, t]);
+
+  const handleDeleteAll = useCallback(() => {
+    Alert.alert(
+      t('settings.delete_confirm_title'),
+      t('settings.delete_confirm_body', describeCounts(periods.length, logs.length)),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('settings.delete_backup_first'), onPress: handleBackup },
+        {
+          text: t('settings.delete_confirm'),
+          style: 'destructive',
+          onPress: () => {
+            try {
+              deleteAllData();
+              Alert.alert(t('settings.delete_title'), t('settings.delete_done'));
+            } catch (e) {
+              console.error(e);
+              Alert.alert(t('settings.error_title'), t('settings.delete_failed'));
+            }
+          },
+        },
+      ],
+    );
+  }, [periods.length, logs.length, describeCounts, handleBackup, t]);
 
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
 
@@ -238,17 +341,38 @@ export default function SettingsScreen() {
         />
       </Card>
 
-      {/* Data Export */}
-      <Card>
-        <Text style={styles.sectionLabel}>{t('day_details.export_data')}</Text>
-        <Button 
-          label={exporting ? t('day_details.saving') : t('day_details.export_data')} 
-          icon="download-outline" 
-          onPress={handleExport}
-          loading={exporting}
+      {/* Your data */}
+      <Card style={styles.buttonStack}>
+        <Text style={styles.sectionLabel}>{t('settings.data_title')}</Text>
+        <Button
+          label={t('settings.backup')}
+          icon="cloud-upload-outline"
+          onPress={handleBackup}
+          loading={busy === 'backup'}
+          disabled={busy !== null}
           variant="secondary"
           fullWidth
         />
+        <Text style={styles.sliderNote}>{t('settings.backup_note')}</Text>
+        <Button
+          label={t('settings.restore')}
+          icon="cloud-download-outline"
+          onPress={handleRestore}
+          loading={busy === 'restore'}
+          disabled={busy !== null}
+          variant="secondary"
+          fullWidth
+        />
+        <Button
+          label={t('settings.export_csv')}
+          icon="document-text-outline"
+          onPress={handleExportCsv}
+          loading={busy === 'csv'}
+          disabled={busy !== null}
+          variant="ghost"
+          fullWidth
+        />
+        <Text style={styles.sliderNote}>{t('settings.export_csv_note')}</Text>
       </Card>
 
       <Divider />
@@ -320,6 +444,22 @@ export default function SettingsScreen() {
           {t('settings.version', { version: appVersion })}
         </Text>
       </Card>
+      <Divider />
+
+      {/* Delete everything — last on the screen, away from everyday
+          controls, and behind a confirmation that states what goes. */}
+      <Card style={styles.buttonStack}>
+        <Text style={styles.sectionLabel}>{t('settings.delete_title')}</Text>
+        <Text style={styles.sliderNote}>{t('settings.delete_note')}</Text>
+        <Button
+          label={t('settings.delete_title')}
+          icon="trash-outline"
+          onPress={handleDeleteAll}
+          disabled={busy !== null}
+          variant="danger"
+          fullWidth
+        />
+      </Card>
     </ScrollView>
     </View>
   );
@@ -352,6 +492,9 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   sliderCard: {
     gap: Spacing.xs,
+  },
+  buttonStack: {
+    gap: Spacing.sm,
   },
   sliderRow: {
     flexDirection: 'row',
