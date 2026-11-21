@@ -1,6 +1,7 @@
 # Where we are
 
-On `fix/logging-flow-audit`, pushed but not merged into `main`. Every fix under
+Stage 1 is pull request 2 (`fix/logging-flow-audit` into `main`), open and
+waiting on the user to merge. Every fix under
 "Recently landed" lives only on that branch, so `main` has none of them.
 Typecheck clean, 108 tests passing, and verified by hand on the Lumi_API35
 emulator on 2026-08-17.
@@ -56,5 +57,7 @@ Mockups are in `.superpowers/brainstorm/` (gitignored). After a birth: a recover
 period, then back to period tracking, and the Journey is kept. Agreed order of
 the four projects: foundations, pregnancy mode, Islamic option, extras. Existing
 user data must survive every change. Expo should be upgraded from SDK 55 to the
-latest (SDK 58 as of 2026-11-21, React Native 0.88). Waiting on how to deliver:
-one pull request per stage, or one at the end. Nothing is built yet.
+latest (SDK 58 as of 2026-11-21, React Native 0.88). Delivery is one pull request
+per stage, merged in turn. Short designs for stage 2 (Expo upgrade and pipeline
+checks) and stage 3 (foundations) are in `docs/superpowers/specs/`, uncommitted,
+waiting on approval. Nothing is built yet.
