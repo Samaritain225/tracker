@@ -57,7 +57,11 @@
           "faceIDPermission": "Allow Cycle Tracker to use Face ID to protect your data."
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      "expo-font",
+      "expo-image",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

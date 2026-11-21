@@ -10,7 +10,7 @@ import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Stack } from 'expo-router';
 
-import { ThemeProvider as NavThemeProvider, DarkTheme, DefaultTheme } from '@react-navigation/native';
+import { ThemeProvider as NavThemeProvider, DarkTheme, DefaultTheme } from 'expo-router/react-navigation';
 
 import { DatabaseProvider } from '@/providers/database-provider';
 import { LocaleProvider } from '@/providers/locale-provider';
@@ -40,10 +40,7 @@ function AppContent() {
 
   return (
     <NavThemeProvider value={customNavTheme}>
-      <StatusBar 
-        style={isDark ? 'light' : 'dark'} 
-        backgroundColor={colors.background}
-      />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <Stack
         screenOptions={{
           animation: 'fade',
