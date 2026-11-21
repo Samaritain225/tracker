@@ -1,82 +1,60 @@
 # Where we are
 
-On `main`. Typecheck clean, 108/108 tests pass, and verified running on the
-Lumi_API35 emulator on 2026-08-17 — fresh arm64 build, installed, driven by hand
-through the period-logging flow.
+On `fix/logging-flow-audit`, pushed but not merged into `main`. Every fix under
+"Recently landed" lives only on that branch, so `main` has none of them.
+Typecheck clean, 108 tests passing, and verified by hand on the Lumi_API35
+emulator on 2026-08-17.
 
-A full logic audit was done on 2026-08-17; the report is at
-`~/.claude/plans/make-an-audit-of-squishy-flame.md` and is the reference for
-everything below.
+The 2026-08-17 logic audit report is no longer on disk (it was under
+`~/.claude/plans/`). Its findings survive only in the lines below.
 
-## Recently landed (this session, uncommitted)
+## Recently landed (on fix/logging-flow-audit)
 
-Saved language is applied at startup by a new `LocaleProvider`. It never was —
-i18n initialised to a static `fr` and only the Settings updater ever called
-`changeLanguage`, so picking English survived in the database, showed as
-selected in Settings, and had no effect after a cold start.
-
-A failed save in day-details no longer shows a success tick. The mutators on
-`usePeriods`/`useDailyLogs` now report their outcome instead of resolving void,
-and `handleSave` bails rather than navigating away on failure.
-
-`findPeriodCovering` moved to `src/utils/cycle.ts` and now respects a confirmed
-`endDate`. It previously let the "period ended" switch on any day within 15 of a
-start rewrite an end date the user had already confirmed.
-
-`buildCycleWindows` applies the same plausibility bounds to a real cycle gap
-that `computeCycleLength` applies to the average, so a mistyped date can no
-longer put ovulation before its own period.
-
-`android:allowBackup` is now false in `app.json` — the plaintext SQLite file was
-being auto-uploaded to Google Drive backup. Verified through a prebuild.
-
-Symptom heatmap is a real horizontal `ScrollView`; the right-hand half was
-clipped and unreachable on every phone at every allowed cycle length.
-
-A day already inside an open period no longer offers "period started" — it
-shows "Day 3 of the period that started 1 January" instead. Nothing stopped a
-second start being logged two days after the first, which is not a new cycle:
-the average became 2 days and called itself calculated, ovulation landed before
-its own period, and the calendar filled with predictions every other day.
-
-The plausibility fallback in `recentPlausibleGaps` is now asymmetric, and the
-asymmetry is the point. Implausibly long gaps are kept — 70-day cycles are real
-(PCOS, perimenopause, post-partum) and answering 28 there is worse than the bug,
-which an existing test defends. Implausibly short ones are discarded, because a
-2-day cycle is a double-logged period rather than a cycle. `cycleSource` and the
-Insights card now gate on a new `hasPlausibleCycleData` rather than a bare
-`length >= 2`, so a fallback value is no longer labelled "calculated".
-
-App lock scope is settled: it keeps a curious partner out, and is not meant to
-survive someone having real access to the device. No FLAG_SECURE, no PIN
-fallback, no encryption at rest — all three documented as decisions in the
-`app-lock-provider.tsx` header and summarised in BRAIN. The Settings copy
-already promised only this, so it was left alone.
+- Saved language now applies at cold start through `LocaleProvider`; before, picking English had no effect after a restart.
+- A failed save in day-details no longer shows a success tick, because the mutators now return their outcome.
+- The "period ended" switch can no longer overwrite an end date the user already confirmed.
+- A mistyped date can no longer put ovulation before its own period.
+- `android:allowBackup` is false, so the plaintext database is no longer uploaded to Google Drive backup.
+- The symptom heatmap scrolls horizontally; its right half used to be unreachable.
+- A day inside an open period shows "Day 3 of the period that started…" instead of offering a second "period started".
+- Implausibly short cycle gaps are discarded and long ones kept; `hasPlausibleCycleData` gates the "calculated" label.
+- App lock scope is settled and documented in BRAIN and the `app-lock-provider.tsx` header.
 
 ## Next
 
-In rough order: no "delete all data" control anywhere in Settings; export
-is CSV-only, one-way, and drops `endDate` so it cannot restore; period reminders
-use a one-shot DATE trigger so they stop after one cycle for anyone who does not
-open the app.
+Merge `fix/logging-flow-audit` into `main`.
 
-Lower value, all justified in the audit: calendar accessibility labels are
-hardcoded English Gregorian; the phase model degenerates at the extremes of its
-own allowed slider settings; every screen independently re-runs the same three
-live queries.
+Then, in rough order: there is no "delete all data" control; export is CSV-only,
+one-way, and drops `endDate`, so it cannot restore; period reminders use a
+one-shot DATE trigger, so they stop after one cycle for anyone who does not open
+the app.
 
-## Verified on device this session
+A late period is handled badly: the phase banner says how many days late, but
+the summary card shows "Next period: N days ago", the calendar keeps the missed
+prediction and projects future ones from it, and lateness never ends or
+suggests a pregnancy test.
 
-`allowBackup` is off on the installed package: `dumpsys package` reports
-`flags=[ DEBUGGABLE HAS_CODE ALLOW_CLEAR_USER_DATA ]` with no `ALLOW_BACKUP`.
-
-A day past a period's confirmed end no longer offers the "period ended" switch,
-and a day inside an open period shows "Jour 3 des règles commencées le 11 août
-2026" with no "period started" toggle. Both checked against the live database
-before and after, which was left exactly as found.
+Lower value: calendar accessibility labels are hardcoded English Gregorian; the
+phase model degenerates at the extremes of its own slider settings; every screen
+re-runs the same three live queries.
 
 ## Open questions
 
-None outstanding — the audit resolved whether the review should cover product
-gaps as well as correctness. It covered both, and they are separated by
-severity in the report.
+The GitHub repo is public and commit `974aee7` still contains `credentials.json`
+with the Android keystore passwords. The keystore file itself was never
+committed. Waiting on whether to change those passwords.
+
+Product direction, decided 2026-11-21: Lumi is for anyone who menstruates,
+with Islamic rulings on menstruation (haid and istihada) as an optional mode on
+top. A pregnancy mode is wanted: a late period leads into it, it tracks the week
+and stage, symptoms, visit dates, due date and the baby's star sign, and the user
+can end it (birth or loss) and go back to cycle tracking. "Lively" means both her
+own data and week-by-week baby development content, in French and English.
+Pregnancy screen picked: Home becomes a week ring with the baby-size comparison,
+due date, star sign and next visit; History becomes a Journey timeline tab.
+Mockups are in `.superpowers/brainstorm/` (gitignored). After a birth: a recovery
+period, then back to period tracking, and the Journey is kept. Agreed order of
+the four projects: foundations, pregnancy mode, Islamic option, extras. Existing
+user data must survive every change. Expo should be upgraded from SDK 55 to the
+latest (SDK 58 as of 2026-11-21, React Native 0.88). Waiting on how to deliver:
+one pull request per stage, or one at the end. Nothing is built yet.
