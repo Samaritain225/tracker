@@ -1,9 +1,32 @@
 name: Create Production Builds
+
 on:
   push:
     branches: ['main']
+
+defaults:
+  tools:
+    # Matches the node pin in eas.json, so the checks install the same
+    # dependency tree the build does.
+    node: 24.15.0
+
 jobs:
+  checks:
+    name: Type check and tests
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Tests
+        run: npx jest
+
   build_android:
-    type: build # This job type creates a production build for Android
+    name: Production APK
+    # A failing check stops the build, so a broken main never produces
+    # an APK.
+    needs: [checks]
+    type: build
     params:
       platform: android
+      profile: production
