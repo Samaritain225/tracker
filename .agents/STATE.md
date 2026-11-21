@@ -17,11 +17,9 @@ Each merge into `main` builds a production APK.
 
 ## Next
 
-1. Stage 4, pregnancy mode: write the design for approval before building. Already decided: a late period leads into it; Home becomes a week ring with the baby-size comparison, due date, star sign and next visit; History becomes a Journey timeline tab; week-by-week baby content in French and English; birth leads to a recovery period, then back to cycles, keeping the Journey; a loss takes the quiet path. Mockups are in `.superpowers/brainstorm/` (gitignored).
+1. Stage 4, pregnancy mode: designed in `docs/superpowers/specs/2026-11-21-pregnancy-mode-design.md` (branch `feat/pregnancy-design`), waiting on the owner's approval. Ships as three stacked pull requests: foundation, Journey, content and Insights. The owner decided that backups include photos (the backup becomes a zip) and that the weekly baby content ships without professional medical review, with its sources listed in the app.
 2. Stage 5, Islamic option (haid, istihada, nifas): needs the user to choose which schools to support and who checks the rulings.
 3. Stage 6, extras: patterns from her own logs, a doctor summary, custom symptoms.
-
-Pregnancy data needs a new backup format version, and the newer app must still read version 1 files.
 
 Lower value: calendar accessibility labels are hardcoded English Gregorian; the
 phase model degenerates at the extremes of its own slider settings; every screen
