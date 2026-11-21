@@ -345,6 +345,12 @@ const MAX_PROJECTED_CYCLES = 24;
  * than today's average), followed by projected future cycles spaced by
  * the average cycle length, far enough out to cover roughly a year.
  *
+ * When `todayISO` is given and the next period is overdue, the first
+ * prediction starts today ("any day now") and later ones are spaced from
+ * there. Projecting from the missed due date instead left a predicted
+ * period painted in the past and every later prediction early by however
+ * late this one is.
+ *
  * Returns an empty array when no periods are logged — there's nothing
  * to build a series from.
  */
@@ -353,6 +359,7 @@ export function buildCycleWindows(
   flowLoggedDates: Set<string>,
   averageCycleLength: number,
   defaultPeriodDurationDays: number,
+  todayISO?: string,
 ): CycleWindow[] {
   if (sortedPeriods.length === 0) {
     return [];
@@ -407,9 +414,11 @@ export function buildCycleWindows(
     Math.max(1, Math.ceil(PROJECTION_HORIZON_DAYS / Math.max(averageCycleLength, 1))),
   );
 
-  let cursor = parseISODate(lastPeriod.startDate);
+  const dueDate = addDays(parseISODate(lastPeriod.startDate), averageCycleLength);
+  const isOverdue = todayISO !== undefined && toISODate(dueDate) < todayISO;
+  let cursor = isOverdue ? parseISODate(todayISO) : dueDate;
   for (let i = 0; i < projectionCount; i++) {
-    cursor = addDays(cursor, averageCycleLength);
+    if (i > 0) cursor = addDays(cursor, averageCycleLength);
     const startISO = toISODate(cursor);
     const end = toISODate(addDays(cursor, defaultPeriodDurationDays - 1));
     const ovulationDate = computeOvulationDay(startISO, averageCycleLength);

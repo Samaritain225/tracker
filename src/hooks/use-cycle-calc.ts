@@ -37,6 +37,10 @@ export type CycleInfo = {
   daysUntilNextPeriod: number | null;
   daysUntilOvulation: number | null;
   currentPhase: PhaseInfo | null;
+  /** Days since the next period was due, or 0 when it isn't overdue.
+   * While this is above 0, `nextPeriod` is today rather than the missed
+   * due date. */
+  daysLate: number;
   /**
    * The period currently in progress, if any — set while the user has
    * logged a start but not yet marked an end. Drives the "Day N of your
@@ -93,6 +97,7 @@ export function useCycleCalc(
         daysUntilNextPeriod: null,
         daysUntilOvulation: null,
         currentPhase: null,
+        daysLate: 0,
         ongoingPeriod: null,
       };
     }
@@ -101,7 +106,13 @@ export function useCycleCalc(
       dailyLogList.filter((l) => l.flow).map((l) => l.date),
     );
 
-    const cycles = buildCycleWindows(sortedPeriods, flowLoggedDates, cycleLength, periodDuration);
+    const cycles = buildCycleWindows(
+      sortedPeriods,
+      flowLoggedDates,
+      cycleLength,
+      periodDuration,
+      todayISO,
+    );
 
     // The nearest predicted cycle is the "next period" convenience
     // value everything else (CycleSummary, reminders) reads — cycles
@@ -117,6 +128,7 @@ export function useCycleCalc(
     const daysUntilNextPeriod = nextPeriod ? daysBetween(today, nextPeriod) : null;
     const daysUntilOvulation = ovulationDay ? daysBetween(today, ovulationDay) : null;
     const currentPhase = computePhase(lastPeriod, cycleLength, periodDuration, today);
+    const daysLate = currentPhase?.daysLate ?? 0;
 
     // Only the most recent period can be in progress; anything earlier is
     // settled whether or not its end was ever confirmed.
@@ -142,6 +154,7 @@ export function useCycleCalc(
       daysUntilNextPeriod,
       daysUntilOvulation,
       currentPhase,
+      daysLate,
       ongoingPeriod,
     };
   }, [periodList, dailyLogList, currentSettings, todayISO]);

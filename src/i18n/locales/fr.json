@@ -22,7 +22,9 @@
     "log_period": "Enregistrer le début des règles",
     "save": "Enregistrer",
     "calculated": "Selon vos données",
-    "estimated": "Estimé"
+    "estimated": "Estimé",
+    "days_late_one": "{{count}} jour de retard",
+    "days_late_other": "{{count}} jours de retard"
   },
   "history": {
     "title": "Historique des règles",
@@ -85,7 +87,8 @@
     "late_tip": "Vos règles n'ont pas encore commencé. Un léger retard est normal, mais notez-le si cela persiste.",
     "period_day_of": "Jour {{day}} des règles",
     "period_ended_question": "Vos règles sont-elles terminées ?",
-    "period_ended_yes": "Oui, terminées"
+    "period_ended_yes": "Oui, terminées",
+    "late_test_tip": "Vos règles ont au moins une semaine de retard. S'il est possible que vous soyez enceinte, un test est fiable dès maintenant."
   },
   "insights": {
     "title": "Analyses",

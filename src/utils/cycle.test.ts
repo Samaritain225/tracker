@@ -563,3 +563,46 @@ describe('buildCycleWindows', () => {
     expect(windows[0].end).toBe('2025-01-03');
   });
 });
+
+describe('buildCycleWindows — overdue period', () => {
+  const duration = 5;
+  const periods = [
+    { startDate: '2026-01-01', endDate: '2026-01-05' },
+    { startDate: '2026-01-29', endDate: '2026-02-02' },
+  ];
+
+  it('projects from the due date while the period is not yet due', () => {
+    // Due 2026-02-26 (28 days after 2026-01-29); today is before that.
+    const windows = buildCycleWindows(periods, new Set(), 28, duration, '2026-02-20');
+    const predictions = windows.filter((w) => w.isPrediction);
+    expect(predictions[0].start).toBe('2026-02-26');
+    expect(predictions[1].start).toBe('2026-03-26');
+  });
+
+  it('keeps the due date on the day the period is due', () => {
+    const windows = buildCycleWindows(periods, new Set(), 28, duration, '2026-02-26');
+    expect(windows.find((w) => w.isPrediction)?.start).toBe('2026-02-26');
+  });
+
+  it('moves the next prediction to today once the period is overdue', () => {
+    // Five days past the 2026-02-26 due date.
+    const windows = buildCycleWindows(periods, new Set(), 28, duration, '2026-03-03');
+    const predictions = windows.filter((w) => w.isPrediction);
+    expect(predictions[0].start).toBe('2026-03-03');
+    expect(predictions[1].start).toBe('2026-03-31');
+  });
+
+  it('paints no predicted day before today while overdue', () => {
+    const today = '2026-03-03';
+    const windows = buildCycleWindows(periods, new Set(), 28, duration, today);
+    for (const w of windows.filter((x) => x.isPrediction)) {
+      expect(w.start >= today).toBe(true);
+    }
+    expect(getDayType(parseISODate('2026-02-27'), windows)).not.toBe('predicted');
+  });
+
+  it('projects from the due date when today is not given', () => {
+    const windows = buildCycleWindows(periods, new Set(), 28, duration);
+    expect(windows.find((w) => w.isPrediction)?.start).toBe('2026-02-26');
+  });
+});

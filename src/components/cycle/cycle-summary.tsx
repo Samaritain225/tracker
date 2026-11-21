@@ -18,8 +18,15 @@ type Props = {
 export function CycleSummary({ cycleInfo }: Props) {
   const { t } = useTranslation();
 
-  const nextPeriodValue = formatDaysLabel(cycleInfo.daysUntilNextPeriod, t);
-  const ovulationValue = formatDaysLabel(cycleInfo.daysUntilOvulation, t);
+  // While the period is overdue the next prediction is "today", which
+  // would read as due rather than late, and the ovulation estimate is
+  // projected from a period that hasn't happened yet — so say how late
+  // it is and leave ovulation blank until the period starts.
+  const isLate = cycleInfo.daysLate > 0;
+  const nextPeriodValue = isLate
+    ? t('home.days_late', { count: cycleInfo.daysLate })
+    : formatDaysLabel(cycleInfo.daysUntilNextPeriod, t);
+  const ovulationValue = isLate ? '—' : formatDaysLabel(cycleInfo.daysUntilOvulation, t);
   const cycleLengthSub = cycleInfo.cycleSource === 'calculated'
     ? t('home.calculated')
     : t('home.estimated');

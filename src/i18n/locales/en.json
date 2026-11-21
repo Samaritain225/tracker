@@ -22,7 +22,9 @@
     "log_period": "Log period start",
     "save": "Save",
     "calculated": "From your data",
-    "estimated": "Estimated"
+    "estimated": "Estimated",
+    "days_late_one": "{{count}} day late",
+    "days_late_other": "{{count}} days late"
   },
   "history": {
     "title": "Period history",
@@ -85,7 +87,8 @@
     "late_tip": "Your period hasn't started yet. A short delay is normal, but log it if it continues.",
     "period_day_of": "Day {{day}} of your period",
     "period_ended_question": "Has your period ended?",
-    "period_ended_yes": "Yes, it ended"
+    "period_ended_yes": "Yes, it ended",
+    "late_test_tip": "Your period is a week or more late. If there's any chance you're pregnant, a home test is reliable now."
   },
   "insights": {
     "title": "Insights",

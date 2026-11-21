@@ -6,6 +6,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { LATE_TEST_SUGGESTION_DAYS } from '@/constants/cycle';
 import { Radii, Spacing, Typography } from '@/constants/theme';
 import type { ThemeColors } from '@/constants/theme';
 import { useTheme } from '@/providers/theme-provider';
@@ -28,7 +29,11 @@ export function PhaseBanner({ phaseInfo, ongoingPeriod, onConfirmPeriodEnded }: 
 
   const progress = Math.min(phaseInfo.dayInPhase / Math.max(phaseInfo.totalPhaseDays, 1), 1);
   const phaseName = t(`phase.${phaseInfo.phase}`);
-  const tip = phaseInfo.isLate ? t('phase.late_tip') : t(`phase.${phaseInfo.phase}_tip`);
+  const tip = !phaseInfo.isLate
+    ? t(`phase.${phaseInfo.phase}_tip`)
+    : phaseInfo.daysLate >= LATE_TEST_SUGGESTION_DAYS
+      ? t('phase.late_test_tip')
+      : t('phase.late_tip');
 
   return (
     <View style={styles.container}>

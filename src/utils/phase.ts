@@ -26,9 +26,10 @@ export type PhaseInfo = {
   /** True cycle day, not wrapped — can exceed cycleLength when late. */
   dayInCycle: number;
   emoji: string;
-  /** True once dayInCycle has passed cycleLength with no new period logged. */
+  /** True once the day the next period was due has passed with no new
+   * period logged. The due day itself is not late. */
   isLate: boolean;
-  /** 0 when not late, otherwise dayInCycle - cycleLength. */
+  /** 0 when not late, otherwise days since the next period was due. */
   daysLate: number;
 };
 
@@ -63,8 +64,13 @@ export function computePhase(
   const ovulationStart = ovulationDay - 1;
   const ovulationEnd = ovulationDay + 1;
 
-  const isLate = dayInCycle > cycleLength;
-  const daysLate = isLate ? dayInCycle - cycleLength : 0;
+  // The next period is due on day cycleLength + 1 — the first day of
+  // the next cycle — so that day itself is "due today", not late.
+  // Counting it as late made every figure one day too high: a period
+  // due six days ago read as seven days late.
+  const dueDay = cycleLength + 1;
+  const isLate = dayInCycle > dueDay;
+  const daysLate = isLate ? dayInCycle - dueDay : 0;
 
   let phase: CyclePhase;
   let dayInPhase: number;
