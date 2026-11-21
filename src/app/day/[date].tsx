@@ -37,16 +37,41 @@ import { LoadingScreen } from '@/components/ui/loading-screen';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { usePeriods } from '@/hooks/use-periods';
+import { usePregnancies } from '@/hooks/use-pregnancies';
+import { resolveMode } from '@/utils/pregnancy';
 import { daysBetween, formatDisplayDate, parseISODate } from '@/utils/date';
 import { findPeriodCovering } from '@/utils/cycle';
 import { useSettings } from '@/hooks/use-settings';
 import type { DailyLog, FlowLevel } from '@/db/schema';
 
 const SYMPTOMS = ['cramps', 'headache', 'bloating', 'acne', 'fatigue'];
+const PREGNANCY_SYMPTOMS = [
+  'nausea',
+  'fatigue',
+  'back_pain',
+  'heartburn',
+  'swelling',
+  'headache',
+  'cramps',
+  'baby_moved',
+];
+
+/**
+ * What kind of day this is, which decides what the sheet offers:
+ *  - cycle: today's sheet, with the period switches.
+ *  - pregnancy: a day inside a pregnancy. No period switches — bleeding
+ *    is logged as bleeding and never starts or extends a period — and
+ *    the pregnancy symptom list.
+ *  - recovery: after a pregnancy ended, before a period was logged. No
+ *    period switches either, unless the sheet was opened from "My period
+ *    has come back", the one deliberate way back to cycle tracking.
+ */
+type DayKind = 'cycle' | 'pregnancy' | 'recovery';
 const MOODS = ['happy', 'sensitive', 'sad', 'anxious'];
 
 export default function DayDetailsScreen() {
-  const { date } = useLocalSearchParams<{ date: string }>();
+  const { date, periodReturn } = useLocalSearchParams<{ date: string; periodReturn?: string }>();
+  const { pregnancies, isLoading: pregnanciesLoading } = usePregnancies();
   const { settings } = useSettings();
   const {
     periods,
@@ -62,7 +87,7 @@ export default function DayDetailsScreen() {
 
   // Wait for both live queries to resolve before mounting the form, so
   // its initial state is never derived from an empty placeholder array.
-  if (periodsLoading || logsLoading) {
+  if (periodsLoading || logsLoading || pregnanciesLoading) {
     return (
       <View style={{ flex: 1 }}>
         <LoadingScreen />
@@ -91,10 +116,20 @@ export default function DayDetailsScreen() {
         }
       : null;
 
+  const inPregnancy = pregnancies.some(
+    (p) => date > p.lastPeriodDate && (p.endedOn === null || date <= p.endedOn),
+  );
+  const mode = resolveMode(pregnancies, periods.map((p) => p.startDate));
+  const inRecovery =
+    mode.kind === 'recovery' && mode.pregnancy.endedOn !== null && date > mode.pregnancy.endedOn;
+  const dayKind: DayKind = inPregnancy ? 'pregnancy' : inRecovery ? 'recovery' : 'cycle';
+
   return (
     <DayDetailsForm
       key={date}
       date={date}
+      dayKind={dayKind}
+      allowPeriodReturn={dayKind === 'recovery' && periodReturn === '1'}
       language={(settings?.language as 'en' | 'fr') ?? 'fr'}
       calendarType={(settings?.calendarType as 'gregorian' | 'hijri') ?? 'gregorian'}
       initialLog={currentLog}
@@ -113,6 +148,10 @@ export default function DayDetailsScreen() {
 
 type DayDetailsFormProps = {
   date: string;
+  dayKind: DayKind;
+  /** Opened from "My period has come back": offer "period started",
+   * switched on, even though this is a recovery day. */
+  allowPeriodReturn: boolean;
   language: 'en' | 'fr';
   calendarType: 'gregorian' | 'hijri';
   initialLog: DailyLog | null;
@@ -137,6 +176,8 @@ type DayDetailsFormProps = {
 
 function DayDetailsForm({
   date,
+  dayKind,
+  allowPeriodReturn,
   language,
   calendarType,
   initialLog,
@@ -156,7 +197,9 @@ function DayDetailsForm({
   const { colors } = useTheme();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
 
-  const [isPeriodStart, setIsPeriodStart] = useState(!!initialPeriodId);
+  const [isPeriodStart, setIsPeriodStart] = useState(!!initialPeriodId || allowPeriodReturn);
+  const showPeriodSwitches = dayKind === 'cycle' || allowPeriodReturn;
+  const symptomList = dayKind === 'pregnancy' ? PREGNANCY_SYMPTOMS : SYMPTOMS;
   const [isPeriodEnd, setIsPeriodEnd] = useState(initialIsPeriodEnd);
   const [flow, setFlow] = useState<FlowLevel | null>(
     (initialLog?.flow as FlowLevel) ?? null,
@@ -277,6 +320,7 @@ function DayDetailsForm({
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.xxl }]}
       >
+        {showPeriodSwitches ? (
         <Animated.View entering={FadeInDown.duration(400).delay(100).springify()}>
           <Card style={styles.card}>
             {/* A day already inside a period gets context, not a second
@@ -323,10 +367,16 @@ function DayDetailsForm({
 
           </Card>
         </Animated.View>
+        ) : null}
 
         <Animated.View entering={FadeInDown.duration(400).delay(150).springify()}>
           <Card style={styles.card}>
-            <Text style={styles.sectionTitle}>{t('day_details.flow')}</Text>
+            <Text style={styles.sectionTitle}>
+              {dayKind === 'cycle' ? t('day_details.flow') : t('day_details.bleeding')}
+            </Text>
+            {dayKind === 'pregnancy' ? (
+              <Text style={styles.hint}>{t('day_details.bleeding_hint')}</Text>
+            ) : null}
             <SegmentedControl
               options={[
                 { label: t('day_details.flow_spotting'), value: 'spotting' },
@@ -344,7 +394,7 @@ function DayDetailsForm({
           <Card style={styles.card}>
             <Text style={styles.sectionTitle}>{t('day_details.symptoms')}</Text>
             <View style={styles.chipGroup}>
-              {SYMPTOMS.map((sym) => {
+              {symptomList.map((sym) => {
                 const active = symptoms.includes(sym);
                 return (
                   <Pressable

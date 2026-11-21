@@ -48,6 +48,14 @@ function AppContent() {
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
+        <Stack.Screen
+          name="pregnancy/setup"
+          options={{ presentation: 'modal', headerShown: false }}
+        />
+        <Stack.Screen
+          name="pregnancy/end"
+          options={{ presentation: 'modal', headerShown: false }}
+        />
         <Stack.Screen 
           name="day/[date]" 
           options={{ 

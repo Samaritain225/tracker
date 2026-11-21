@@ -26,6 +26,10 @@ import { SegmentedControl } from '@/components/ui/segmented-control';
 import { useSettings } from '@/hooks/use-settings';
 import { usePeriods } from '@/hooks/use-periods';
 import { useDailyLogs } from '@/hooks/use-daily-logs';
+import { usePregnancies } from '@/hooks/use-pregnancies';
+import { usePregnancyVisits } from '@/hooks/use-pregnancy-visits';
+import { resolveMode } from '@/utils/pregnancy';
+import { useRouter } from 'expo-router';
 import { requestNotificationPermissions } from '@/services/notifications';
 import {
   applyRestorePlan,
@@ -56,7 +60,11 @@ export default function SettingsScreen() {
     updateTheme,
     updateAppLock,
     updateReminders,
+    updateShowStarSign,
   } = useSettings();
+  const router = useRouter();
+  const { pregnancies, removePregnancy } = usePregnancies();
+  const { visits } = usePregnancyVisits();
   const { colors } = useTheme();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const { periods } = usePeriods();
@@ -95,6 +103,28 @@ export default function SettingsScreen() {
     },
     [updatePeriodDuration],
   );
+
+  const mode = resolveMode(pregnancies, periods.map((p) => p.startDate).sort());
+  const activePregnancy = mode.kind === 'pregnant' ? mode.pregnancy : null;
+  // Only a pregnancy with nothing recorded against it yet can be removed
+  // as a mistake; once visits exist it has clearly happened, and ending
+  // it goes through "The pregnancy has ended".
+  const canRemovePregnancy =
+    activePregnancy !== null && !visits.some((v) => v.pregnancyId === activePregnancy.id);
+
+  const handleRemovePregnancy = useCallback(() => {
+    if (!activePregnancy) return;
+    Alert.alert(t('pregnancy.remove_confirm_title'), t('pregnancy.remove_confirm_body'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('pregnancy.remove_confirm'),
+        style: 'destructive',
+        onPress: () => {
+          removePregnancy(activePregnancy.id);
+        },
+      },
+    ]);
+  }, [activePregnancy, removePregnancy, t]);
 
   const locale = (settings?.language as 'fr' | 'en') ?? 'fr';
   const calendarType = (settings?.calendarType as 'gregorian' | 'hijri') ?? 'gregorian';
@@ -340,6 +370,58 @@ export default function SettingsScreen() {
           accessibilityLabel={t('settings.period_duration')}
         />
       </Card>
+
+      {/* Pregnancy */}
+      <Card style={styles.buttonStack}>
+        <Text style={styles.sectionLabel}>{t('pregnancy.settings_section')}</Text>
+        {activePregnancy ? (
+          <>
+            <Button
+              label={t('pregnancy.settings_edit_dates')}
+              icon="calendar-outline"
+              onPress={() => router.push('/pregnancy/setup?edit=1')}
+              variant="secondary"
+              fullWidth
+            />
+            <View style={styles.sliderRow}>
+              <Text style={styles.sliderLabel}>{t('pregnancy.settings_star')}</Text>
+              <Switch
+                value={settings?.showStarSign !== 0}
+                onValueChange={updateShowStarSign}
+                trackColor={{ true: colors.primary, false: colors.border }}
+                thumbColor={colors.surface}
+              />
+            </View>
+            <Button
+              label={t('pregnancy.settings_end')}
+              onPress={() => router.push('/pregnancy/end')}
+              variant="secondary"
+              fullWidth
+            />
+            {canRemovePregnancy ? (
+              <>
+                <Button
+                  label={t('pregnancy.settings_remove')}
+                  onPress={handleRemovePregnancy}
+                  variant="ghost"
+                  fullWidth
+                />
+                <Text style={styles.sliderNote}>{t('pregnancy.settings_remove_note')}</Text>
+              </>
+            ) : null}
+          </>
+        ) : (
+          <Button
+            label={t('pregnancy.settings_start')}
+            icon="heart-outline"
+            onPress={() => router.push('/pregnancy/setup')}
+            variant="secondary"
+            fullWidth
+          />
+        )}
+      </Card>
+
+      <Divider />
 
       {/* Your data */}
       <Card style={styles.buttonStack}>

@@ -17,9 +17,13 @@ import { CalendarGrid } from '@/components/calendar/calendar-grid';
 import { CalendarLegend } from '@/components/calendar/calendar-legend';
 import { CycleSummary } from '@/components/cycle/cycle-summary';
 import { PhaseBanner } from '@/components/cycle/phase-banner';
+import { PregnancyOverview } from '@/components/pregnancy/pregnancy-overview';
+import { RecoveryOverview } from '@/components/pregnancy/recovery-overview';
+import { LATE_TEST_SUGGESTION_DAYS } from '@/constants/cycle';
 import { useCycleCalc } from '@/hooks/use-cycle-calc';
 import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { usePeriods } from '@/hooks/use-periods';
+import { usePregnancies } from '@/hooks/use-pregnancies';
 import { useSettings } from '@/hooks/use-settings';
 import { useToday } from '@/hooks/use-today';
 import { addDays, parseISODate, toISODate } from '@/utils/date';
@@ -29,15 +33,17 @@ export default function HomeScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { periods, error, setPeriodEnd } = usePeriods();
-  const { settings } = useSettings();
+  const { settings, dismissPregnancyPrompt } = useSettings();
   const { logs } = useDailyLogs();
+  const { pregnancies, setBreastfeeding } = usePregnancies();
   const { colors } = useTheme();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const todayISO = useToday();
   // Reminder scheduling itself lives in RemindersProvider (mounted at
   // the app root) so it stays in sync without requiring a visit to this
   // screen — see providers/reminders-provider.tsx.
-  const cycleInfo = useCycleCalc(periods, logs, settings, todayISO);
+  const cycleInfo = useCycleCalc(periods, logs, settings, todayISO, pregnancies);
+  const mode = cycleInfo.mode;
 
   const now = parseISODate(todayISO);
   const calendarType = settings?.calendarType as 'gregorian' | 'hijri' ?? 'gregorian';
@@ -54,6 +60,21 @@ export default function HomeScreen() {
   // bleeding: the prompt only appears once the period has already run
   // past its typical length, so "it has stopped" means it stopped before
   // today rather than today.
+  // Asked once the period is a week late — the same point the banner
+  // starts suggesting a test — until answered for this cycle.
+  const lastPeriod = cycleInfo.lastPeriod;
+  const showPregnancyPrompt =
+    mode.kind === 'cycle' &&
+    cycleInfo.daysLate >= LATE_TEST_SUGGESTION_DAYS &&
+    lastPeriod !== null &&
+    settings?.pregnancyPromptDismissedFor !== lastPeriod;
+  const pregnancyPrompt = showPregnancyPrompt
+    ? {
+        onPregnant: () => router.push('/pregnancy/setup'),
+        onNotPregnant: () => dismissPregnancyPrompt(lastPeriod!),
+      }
+    : null;
+
   const ongoingPeriodId = cycleInfo.ongoingPeriod?.id ?? null;
   const handleConfirmPeriodEnded = useCallback(() => {
     if (!ongoingPeriodId) return;
@@ -77,21 +98,47 @@ export default function HomeScreen() {
         </View>
       </Animated.View>
 
-      {/* Phase banner */}
-      {cycleInfo.currentPhase && (
+      {mode.kind === 'pregnant' ? (
         <Animated.View entering={FadeInDown.duration(600).delay(200).springify()}>
-          <PhaseBanner
-            phaseInfo={cycleInfo.currentPhase}
-            ongoingPeriod={cycleInfo.ongoingPeriod}
-            onConfirmPeriodEnded={handleConfirmPeriodEnded}
+          <PregnancyOverview
+            pregnancy={mode.pregnancy}
+            todayISO={todayISO}
+            language={language}
+            calendarType={calendarType}
+            showStarSign={settings?.showStarSign !== 0}
+            onLogToday={() => handleDayPress(todayISO)}
           />
         </Animated.View>
-      )}
+      ) : mode.kind === 'recovery' ? (
+        <Animated.View entering={FadeInDown.duration(600).delay(200).springify()}>
+          <RecoveryOverview
+            pregnancy={mode.pregnancy}
+            outcome={mode.outcome}
+            todayISO={todayISO}
+            onSetBreastfeeding={(value) => setBreastfeeding(mode.pregnancy.id, value)}
+            onPeriodBack={() => router.push(`/day/${todayISO}?periodReturn=1`)}
+          />
+        </Animated.View>
+      ) : (
+        <>
+          {/* Phase banner */}
+          {cycleInfo.currentPhase && (
+            <Animated.View entering={FadeInDown.duration(600).delay(200).springify()}>
+              <PhaseBanner
+                phaseInfo={cycleInfo.currentPhase}
+                ongoingPeriod={cycleInfo.ongoingPeriod}
+                onConfirmPeriodEnded={handleConfirmPeriodEnded}
+                pregnancyPrompt={pregnancyPrompt}
+              />
+            </Animated.View>
+          )}
 
-      {/* Metric cards */}
-      <Animated.View entering={FadeInDown.duration(600).delay(300).springify()}>
-        <CycleSummary cycleInfo={cycleInfo} />
-      </Animated.View>
+          {/* Metric cards */}
+          <Animated.View entering={FadeInDown.duration(600).delay(300).springify()}>
+            <CycleSummary cycleInfo={cycleInfo} />
+          </Animated.View>
+        </>
+      )}
 
       {/* Calendar */}
       <Animated.View entering={FadeInDown.duration(600).delay(400).springify()}>
@@ -107,10 +154,12 @@ export default function HomeScreen() {
         />
       </Animated.View>
 
-      {/* Legend */}
-      <Animated.View entering={FadeInDown.duration(600).delay(500).springify()}>
-        <CalendarLegend />
-      </Animated.View>
+      {/* Legend — only cycle mode has predictions and fertile days to explain. */}
+      {mode.kind === 'cycle' && (
+        <Animated.View entering={FadeInDown.duration(600).delay(500).springify()}>
+          <CalendarLegend />
+        </Animated.View>
+      )}
     </ScrollView>
     </View>
   );
