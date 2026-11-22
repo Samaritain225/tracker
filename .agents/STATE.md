@@ -1,9 +1,10 @@
 # Where we are
 
-All six stages are merged into `main` (2026-11-22). The stack was merged from
-the top down, so only the final merge into `main` started a production build:
-one EAS run, in progress at the time of writing. From now on work goes into
-`develop`, which is the default branch; merging `develop` into `main` is a release.
+Release 2 (pull request 15, 2026-11-22) merged `develop` into `main` with the
+launch animation, cycle-adjusted due dates, the "How Lumi works it out" screen,
+the wider fertile window and the period-end fix. One EAS production build was
+running at the time of writing. Work goes into `develop`, the default branch;
+merging `develop` into `main` is a release, and every push to `main` costs a build.
 
 ## Recently landed
 
