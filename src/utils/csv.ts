@@ -5,10 +5,23 @@
  */
 
 import type { DailyLog, Period } from '@/db/schema';
+import { customIdOf } from './symptoms';
 
 const HEADER = ['Date', 'Type', 'Period End', 'Flow', 'Symptoms', 'Mood', 'Notes'];
 
-export function buildCsv(periodList: Period[], logList: DailyLog[]): string {
+/**
+ * Built-in symptoms keep their keys, as they always have; ones she added
+ * herself are written by name, since their key is a meaningless id.
+ */
+export function buildCsv(
+  periodList: Period[],
+  logList: DailyLog[],
+  customLabels: ReadonlyMap<string, string> = new Map(),
+): string {
+  const symptomCell = (key: string) => {
+    const id = customIdOf(key);
+    return id === null ? key : (customLabels.get(id) ?? key);
+  };
   const periodsByStart = new Map(periodList.map((p) => [p.startDate, p]));
   const logsByDate = new Map(logList.map((l) => [l.date, l]));
   const dates = [...new Set([...periodsByStart.keys(), ...logsByDate.keys()])].sort();
@@ -21,7 +34,7 @@ export function buildCsv(periodList: Period[], logList: DailyLog[]): string {
       period ? 'Period Start' : '',
       period?.endDate ?? '',
       log?.flow ?? '',
-      log?.symptoms?.join(';') ?? '',
+      log?.symptoms?.map(symptomCell).join(';') ?? '',
       log?.mood ?? '',
       log?.notes ?? '',
     ];

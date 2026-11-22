@@ -13,6 +13,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
+import { useCustomSymptoms } from '@/hooks/use-custom-symptoms';
 import { Radii, Spacing, Typography } from '@/constants/theme';
 import type { ThemeColors } from '@/constants/theme';
 import type { DailyLog, Pregnancy, PregnancyMoment, PregnancyVisit } from '@/db/schema';
@@ -23,6 +24,7 @@ import { buildJourney } from '@/utils/journey';
 import type { JourneyEntry } from '@/utils/journey';
 import { effectiveDueDate, gestationalAge, pregnancyProgress } from '@/utils/pregnancy';
 import { STAR_SIGN_SYMBOLS, likelyStarSign, starSignFor } from '@/utils/zodiac';
+import { milestoneWeeks } from '@/utils/pregnancy-content';
 
 type Props = {
   pregnancy: Pregnancy;
@@ -62,6 +64,7 @@ export function JourneyView({
   onOpenMoment,
 }: Props) {
   const { t } = useTranslation();
+  const { labelOf } = useCustomSymptoms();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -71,8 +74,8 @@ export function JourneyView({
     [moments, pregnancy.id],
   );
   const entries = useMemo(
-    () => buildJourney(pregnancy, ownVisits, ownMoments, logs, todayISO),
-    [pregnancy, ownVisits, ownMoments, logs, todayISO],
+    () => buildJourney(pregnancy, ownVisits, ownMoments, logs, todayISO, milestoneWeeks(language)),
+    [pregnancy, ownVisits, ownMoments, logs, todayISO, language],
   );
 
   const asOf = pregnancy.endedOn ?? todayISO;
@@ -137,6 +140,7 @@ export function JourneyView({
             pregnancy={pregnancy}
             todayWeek={age.weeks}
             formatDate={formatDate}
+            labelOf={labelOf}
             readOnly={readOnly}
             onOpenVisit={onOpenVisit}
             onOpenMoment={onOpenMoment}
@@ -156,6 +160,8 @@ function entryKey(entry: Entry): string {
       return `m-${entry.moment.id}`;
     case 'week':
       return `w-${entry.summary.week}`;
+    case 'milestone':
+      return `ms-${entry.week}`;
     default:
       return entry.type;
   }
@@ -187,6 +193,7 @@ function TimelineRow({
   pregnancy,
   todayWeek,
   formatDate,
+  labelOf,
   readOnly,
   onOpenVisit,
   onOpenMoment,
@@ -196,6 +203,7 @@ function TimelineRow({
   pregnancy: Pregnancy;
   todayWeek: number;
   formatDate: (iso: string) => string;
+  labelOf: (key: string) => string;
   readOnly: boolean;
   onOpenVisit?: (visit: PregnancyVisit) => void;
   onOpenMoment?: (moment: PregnancyMoment) => void;
@@ -215,6 +223,11 @@ function TimelineRow({
       emphasis = true;
       label = t('journey.today');
       title = t('pregnancy.week_label', { week: todayWeek });
+      break;
+    case 'milestone':
+      label = formatDate(entry.date);
+      title = `🌟 ${entry.label}`;
+      emphasis = true;
       break;
     case 'ended':
       label = formatDate(entry.date);
@@ -272,7 +285,7 @@ function TimelineRow({
         .map((x) =>
           t('journey.symptom_days', {
             count: x.days,
-            name: t(`day_details.symptom_${x.key}`, { defaultValue: x.key }),
+            name: labelOf(x.key),
           }),
         )
         .join(', ');

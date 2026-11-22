@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { Typography } from '@/constants/theme';
 import { useTheme } from '@/providers/theme-provider';
 import type { GestationalAge, Trimester } from '@/utils/pregnancy';
+import { formatAge, formatDaysShort } from './format-age';
 
 const WEEKS = 40;
 const SIZE = 216;
@@ -20,9 +21,11 @@ const RADIUS = SIZE / 2 - DOT;
 type Props = {
   age: GestationalAge;
   trimester: Trimester;
+  /** The week's size comparison, shown in the middle. */
+  emoji: string;
 };
 
-export function WeekRing({ age, trimester }: Props) {
+export function WeekRing({ age, trimester, emoji }: Props) {
   const { colors } = useTheme();
   const { t } = useTranslation();
 
@@ -30,7 +33,7 @@ export function WeekRing({ age, trimester }: Props) {
     <View
       style={styles.ring}
       accessible
-      accessibilityLabel={`${t('pregnancy.age', { weeks: age.weeks, days: age.days })}, ${t(`pregnancy.trimester_${trimester}`)}`}
+      accessibilityLabel={`${formatAge(t, age)}, ${t(`pregnancy.trimester_${trimester}`)}`}
     >
       {Array.from({ length: WEEKS }, (_, i) => {
         // Start at the top and run clockwise.
@@ -54,11 +57,12 @@ export function WeekRing({ age, trimester }: Props) {
       })}
 
       <View style={styles.centre}>
+        <Text style={styles.emoji}>{emoji}</Text>
         <Text style={[styles.week, { color: colors.textPrimary }]}>
           {t('pregnancy.week_label', { week: age.weeks })}
         </Text>
         <Text style={[styles.days, { color: colors.textSecondary }]}>
-          {t('pregnancy.age_short', { days: age.days })}
+          {formatDaysShort(t, age.days)}
         </Text>
         <Text style={[styles.trimester, { color: colors.primary }]}>
           {t(`pregnancy.trimester_${trimester}`)}
@@ -85,6 +89,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
+  },
+  emoji: {
+    fontSize: 38,
+    marginBottom: 2,
   },
   week: {
     fontSize: Typography.sizes.xxl,

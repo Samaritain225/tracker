@@ -27,6 +27,7 @@ export type JourneyEntry<V extends VisitLike, M extends MomentLike> =
   | { type: 'visit'; date: string; visit: V; upcoming: boolean }
   | { type: 'moment'; date: string; moment: M }
   | { type: 'week'; date: string; summary: WeekSummary }
+  | { type: 'milestone'; date: string; week: number; label: string }
   | { type: 'today'; date: string }
   | { type: 'ended'; date: string; outcome: 'birth' | 'loss' };
 
@@ -75,8 +76,21 @@ export function buildJourney<V extends VisitLike, M extends MomentLike>(
   moments: M[],
   logs: LogLike[],
   todayISO: string,
+  milestones: { week: number; label: string }[] = [],
 ): JourneyEntry<V, M>[] {
   const entries: JourneyEntry<V, M>[] = [];
+
+  // Milestones appear once reached, and never after a loss: "Halfway
+  // there" on the timeline of a pregnancy that ended is the opposite of
+  // what the loss path promises.
+  if (pregnancy.outcome !== 'loss') {
+    const start = parseISODate(gestationStartDate(pregnancy));
+    const reachedBy = pregnancy.endedOn ?? todayISO;
+    for (const m of milestones) {
+      const date = toISODate(addDays(start, m.week * 7));
+      if (date <= reachedBy) entries.push({ type: 'milestone', date, week: m.week, label: m.label });
+    }
+  }
 
   for (const visit of visits) {
     entries.push({ type: 'visit', date: visit.date, visit, upcoming: visit.date > todayISO });
@@ -101,7 +115,7 @@ export function buildJourney<V extends VisitLike, M extends MomentLike>(
   // Newest first. On the same day: the ending or today first, then
   // visits, then moments (latest added first), then the week summary,
   // which describes the days after its start date.
-  const rank = { ended: 0, today: 0, visit: 1, moment: 2, week: 3 } as const;
+  const rank = { ended: 0, today: 0, milestone: 1, visit: 2, moment: 3, week: 4 } as const;
   return entries.sort((a, b) => {
     if (a.date !== b.date) return b.date.localeCompare(a.date);
     if (rank[a.type] !== rank[b.type]) return rank[a.type] - rank[b.type];
@@ -110,4 +124,53 @@ export function buildJourney<V extends VisitLike, M extends MomentLike>(
     }
     return 0;
   });
+}
+
+export type SymptomGrid = {
+  /** Every gestational week from the first logged one to `upToWeek`. */
+  weeks: number[];
+  /** One row per symptom, most logged first; counts are days per week. */
+  rows: { key: string; counts: number[] }[];
+};
+
+/**
+ * Symptoms by week for pregnancy Insights: how many days of each week
+ * each symptom was logged. Weeks with nothing logged stay in the grid as
+ * zeros, so gaps are visible rather than closed up.
+ */
+export function symptomGridByWeek(
+  pregnancy: Pick<PregnancyLike, 'lastPeriodDate' | 'scanDueDate' | 'endedOn'>,
+  logs: LogLike[],
+  upToWeek: number,
+  maxRows: number = 8,
+): SymptomGrid {
+  const start = gestationStartDate(pregnancy);
+  const end = pregnancy.endedOn ?? '9999-12-31';
+  const perWeek = new Map<number, Map<string, number>>();
+  const totals = new Map<string, number>();
+
+  for (const log of logs) {
+    if (log.date <= start || log.date > end) continue;
+    const { weeks } = gestationalAge(pregnancy, log.date);
+    for (const key of log.symptoms ?? []) {
+      const week = perWeek.get(weeks) ?? new Map<string, number>();
+      week.set(key, (week.get(key) ?? 0) + 1);
+      perWeek.set(weeks, week);
+      totals.set(key, (totals.get(key) ?? 0) + 1);
+    }
+  }
+
+  if (perWeek.size === 0) return { weeks: [], rows: [] };
+
+  const first = Math.min(...perWeek.keys());
+  const weeks = Array.from({ length: Math.max(0, upToWeek - first + 1) }, (_, i) => first + i);
+  const keys = [...totals.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, maxRows)
+    .map(([key]) => key);
+
+  return {
+    weeks,
+    rows: keys.map((key) => ({ key, counts: weeks.map((w) => perWeek.get(w)?.get(key) ?? 0) })),
+  };
 }
