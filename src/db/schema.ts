@@ -81,6 +81,13 @@ export const pregnancies = sqliteTable('pregnancies', {
   babyName: text('baby_name'),
   /** Asked during recovery after a birth; null until answered. */
   breastfeeding: integer('breastfeeding'),
+  /**
+   * After a loss, whether she chose to keep the Journey ('kept') or
+   * delete it ('deleted' — visits, moments and photos removed, the
+   * pregnancy itself kept so cycle maths still leaves it out). Null
+   * until asked; never asked after a birth.
+   */
+  journeyChoice: text('journey_choice'),
   createdAt: integer('created_at').$defaultFn(() => Date.now()),
 });
 

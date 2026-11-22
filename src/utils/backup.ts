@@ -88,6 +88,8 @@ export type BackupPregnancy = {
   outcome: PregnancyOutcome | null;
   babyName: string | null;
   breastfeeding: boolean | null;
+  /** 'kept' | 'deleted' after a loss; absent in older version 2 files. */
+  journeyChoice: 'kept' | 'deleted' | null;
   startedAt: number | null;
   createdAt: number | null;
 };
@@ -188,6 +190,7 @@ export function buildBackup(
         outcome: (p.outcome as PregnancyOutcome | null) ?? null,
         babyName: p.babyName ?? null,
         breastfeeding: p.breastfeeding === null || p.breastfeeding === undefined ? null : p.breastfeeding === 1,
+        journeyChoice: p.journeyChoice === 'kept' || p.journeyChoice === 'deleted' ? p.journeyChoice : null,
         startedAt: p.startedAt ?? null,
         createdAt: p.createdAt ?? null,
       })),
@@ -507,6 +510,8 @@ function readPregnancy(item: unknown): BackupPregnancy | null {
     outcome,
     babyName,
     breastfeeding: typeof item.breastfeeding === 'boolean' ? item.breastfeeding : null,
+    journeyChoice:
+      item.journeyChoice === 'kept' || item.journeyChoice === 'deleted' ? item.journeyChoice : null,
     startedAt: optionalTimestamp(item.startedAt),
     createdAt: optionalTimestamp(item.createdAt),
   };

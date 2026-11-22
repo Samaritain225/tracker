@@ -292,6 +292,7 @@ describe('version 2: pregnancies', () => {
     outcome: 'birth',
     babyName: 'Awa',
     breastfeeding: 1,
+    journeyChoice: null,
     createdAt: 6,
   };
   const visitRow: PregnancyVisit = {
@@ -335,6 +336,7 @@ describe('version 2: pregnancies', () => {
         outcome: 'birth',
         babyName: 'Awa',
         breastfeeding: true,
+        journeyChoice: null,
         startedAt: 5,
         createdAt: 6,
       },
