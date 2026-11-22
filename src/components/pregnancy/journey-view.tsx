@@ -90,19 +90,23 @@ export function JourneyView({
       <View style={styles.headerRow}>
         <View style={styles.flex}>
           <Text style={styles.kicker}>{t('journey.title')}</Text>
-          <Text style={styles.heading}>{t('journey.week_of', { week: age.weeks })}</Text>
+          {pregnancy.outcome === 'loss' ? null : (
+            <Text style={styles.heading}>{t('journey.week_of', { week: age.weeks })}</Text>
+          )}
         </View>
       </View>
 
-      <TrimesterBar progress={progress} styles={styles} />
-      <Text style={styles.dueLine}>
-        {pregnancy.outcome === 'birth' && pregnancy.endedOn
-          ? t('journey.past_born', { date: formatDate(pregnancy.endedOn) })
-          : t('journey.past_due', { date: formatDate(dueISO) })}
-        {showStarSign && pregnancy.outcome !== 'loss'
-          ? `  ·  ${STAR_SIGN_SYMBOLS[sign]} ${t(`pregnancy.sign_${sign}`)}`
-          : ''}
-      </Text>
+      {pregnancy.outcome === 'loss' ? null : <TrimesterBar progress={progress} styles={styles} />}
+      {/* After a loss, no due date and no star sign: both point at a
+          baby who isn't coming. */}
+      {pregnancy.outcome === 'loss' ? null : (
+        <Text style={styles.dueLine}>
+          {pregnancy.outcome === 'birth' && pregnancy.endedOn
+            ? t('journey.past_born', { date: formatDate(pregnancy.endedOn) })
+            : t('journey.past_due', { date: formatDate(dueISO) })}
+          {showStarSign ? `  ·  ${STAR_SIGN_SYMBOLS[sign]} ${t(`pregnancy.sign_${sign}`)}` : ''}
+        </Text>
+      )}
 
       {readOnly ? (
         <Text style={styles.note}>{t('journey.read_only')}</Text>
@@ -210,7 +214,7 @@ function TimelineRow({
     case 'today':
       emphasis = true;
       label = t('journey.today');
-      title = t('journey.today_week', { week: todayWeek });
+      title = t('pregnancy.week_label', { week: todayWeek });
       break;
     case 'ended':
       label = formatDate(entry.date);

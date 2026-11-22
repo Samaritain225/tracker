@@ -79,7 +79,15 @@ export default function HistoryScreen() {
       // Cycle gap: difference between this period and the next one (older)
       const nextItem = sortedPeriods[index + 1];
       let cycleGap: number | null = null;
-      if (nextItem) {
+      // A gap that contains a pregnancy isn't a cycle, so no length is
+      // shown for it — "400-day cycle" next to the first period after a
+      // birth would be both wrong and jarring.
+      const spansPregnancy =
+        nextItem !== undefined &&
+        pregnancies.some(
+          (p) => nextItem.startDate <= (p.endedOn ?? '9999-12-31') && item.startDate > p.lastPeriodDate,
+        );
+      if (nextItem && !spansPregnancy) {
         cycleGap = daysBetween(
           parseISODate(nextItem.startDate),
           parseISODate(item.startDate),
@@ -98,7 +106,7 @@ export default function HistoryScreen() {
         />
       );
     },
-    [sortedPeriods, language, calendarType, handleDelete],
+    [sortedPeriods, language, calendarType, handleDelete, pregnancies],
   );
 
   const mode = resolveMode(pregnancies, periods.map((p) => p.startDate).sort());
@@ -232,9 +240,13 @@ function PastPregnancyCard({
     <Card style={styles.pastCard}>
       <Pressable onPress={onOpen} accessibilityRole="button">
         <Text style={styles.pastTitle}>{title}</Text>
-        <Text style={styles.pastSub}>
-          {t('journey.past_due', { date: formatDate(effectiveDueDate(pregnancy)) })}
-        </Text>
+        {/* No due date after a loss: a date the baby would have been due
+            is exactly the kind of reminder the loss path keeps away. */}
+        {pregnancy.outcome === 'birth' ? (
+          <Text style={styles.pastSub}>
+            {t('journey.past_due', { date: formatDate(effectiveDueDate(pregnancy)) })}
+          </Text>
+        ) : null}
       </Pressable>
       {asking ? (
         <View style={styles.pastQuestion}>
