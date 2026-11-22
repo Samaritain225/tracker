@@ -51,6 +51,14 @@ edit, and delete `cycle.db-wal` and `cycle.db-shm` on the device when copying
 it back. Recent writes live in the WAL file; skip any step and the edit is
 either missing data or silently overwritten on the next launch.
 
+Expo's floating dev-tools button sits over the top right of every debug screen
+(around 970,245 on Lumi_API35), so a tap on a switch or button there opens the
+dev menu instead. Close the menu with its X and scroll the control lower before
+tapping it, or the test silently checks nothing.
+
+Do not run `npx expo lint`: the project has no ESLint, so it rewrites
+`package.json` and `package-lock.json` and adds `eslint.config.js`, then fails.
+
 Maven Central keeps cutting off the download of `react-android-<version>-debug.aar`
 (about 290 MB), and Gradle fails with "Connection reset" however many retries it
 is given. Fetch it with `curl -C - --retry 5` instead, check it against the

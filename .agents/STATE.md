@@ -1,6 +1,6 @@
 # Where we are
 
-Six stacked pull requests are open, each waiting on the user to merge in
+Seven stacked pull requests are open, each waiting on the user to merge in
 order. Each merge into `main` builds a production APK.
 
 - Stage 1, pull request 2: the August logic-audit fixes (`fix/logging-flow-audit`).
@@ -9,19 +9,21 @@ order. Each merge into `main` builds a production APK.
 - Stage 4 part 1, pull request 5: pregnancy foundation (`feat/pregnancy-foundation`), including the approved design.
 - Stage 4 part 2, pull request 6: the Journey (`feat/pregnancy-journey`).
 - Stage 4 part 3, pull request 7: weekly content and pregnancy Insights (`feat/pregnancy-content`).
+- Stage 5, pull request 8: the Islamic option, Maliki school (`feat/islamic-option`), including its design.
 
-## Recently landed (stage 4 part 3, on feat/pregnancy-content)
+## Recently landed
 
-- Week-by-week notes in English and French (weeks 0-3, then 4 to 41), written from the NHS guide and Service-Public; sizes are NHS lengths, no weights. Not professionally reviewed, as the owner decided; the app says so on its sources screen.
-- The ring shows the week's size emoji; Home has a "This week" card linking to "About this information".
-- Journey milestones (halfway, full term, due date), never after a loss.
-- Pregnancy Insights: symptoms by week, weight at visits, visits so far.
-- Verified on the Lumi_API35 emulator on 2026-11-22, in English and French.
+- Stage 4 part 3: week-by-week content with sources, milestones and pregnancy Insights, verified on the emulator in English and French.
+- Stage 5: one switch in Settings; counts of bleeding and purity with Maliki reference limits on Home and the day sheet; a nifas line after a birth; a quote when bleeding is logged in pregnancy; nothing religious after a loss; a "Fasts to make up" screen per Ramadan with a suggestion she can override and made-up fasts she ticks off; a sources screen citing Bewley's Risala by section. Verified on the emulator on 2026-11-22 (English only; the French text has a completeness test). The backup round trip is covered by tests, not run on the emulator.
+
+## Decided, still true for later schools
+
+- No verdicts: the app counts and quotes, never says she may or must pray or fast. No scholar has checked the references; the app says so.
+- A new school is one file in `src/utils/fiqh/` plus its text; screens never hold a number.
 
 ## Next
 
-1. Stage 5, Islamic option (haid, istihada, nifas, prayers and fasts to make up): being designed. Decided 2026-11-22: Maliki school only, structured so other schools can be added later. No one will check the rulings: the owner chose to ship with Maliki sources listed, so the proposed scope is reduced to counting and reference (no "this day is haid" verdicts). Scope accepted: counts, reference limits, Ramadan make-up fasts, no verdicts. Limits verified on 2026-11-22 against Aisha Bewley's English Risala (sections 2.2f, 2.5, 2.6, chapter 23, with commentary quoting Khalil); cite the book by section, no PDF link (copyright unclear). Next: write the design.
-2. Stage 6, extras: patterns from her own logs, a doctor summary, custom symptoms.
+1. Stage 6, extras: patterns from her own logs, a doctor summary, custom symptoms. Not designed yet.
 
 Lower value: calendar accessibility labels are hardcoded English Gregorian; the
 phase model degenerates at the extremes of its own slider settings; every screen
