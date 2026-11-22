@@ -19,7 +19,9 @@ import { usePeriods } from '@/hooks/use-periods';
 import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { useSettings } from '@/hooks/use-settings';
 import { usePregnancies } from '@/hooks/use-pregnancies';
-import { pregnancySpans } from '@/utils/pregnancy';
+import { pregnancySpans, resolveMode } from '@/utils/pregnancy';
+import { PregnancyInsights } from '@/components/pregnancy/pregnancy-insights';
+import { usePregnancyVisits } from '@/hooks/use-pregnancy-visits';
 import { useToday } from '@/hooks/use-today';
 import { DEFAULT_PERIOD_DURATION_DAYS } from '@/constants/cycle';
 import {
@@ -34,6 +36,7 @@ export default function InsightsScreen() {
   const { t } = useTranslation();
   const { periods } = usePeriods();
   const { logs } = useDailyLogs();
+  const { visits } = usePregnancyVisits();
   const { settings } = useSettings();
   const { pregnancies: pregnancyList } = usePregnancies();
   const { colors } = useTheme();
@@ -96,6 +99,8 @@ export default function InsightsScreen() {
       .map(([sym]) => sym);
   }, [logs]);
 
+  const mode = resolveMode(pregnancyList, sortedDates);
+
   return (
     <View style={styles.container}>
       <View style={{ height: insets.top, backgroundColor: colors.background }} />
@@ -110,7 +115,18 @@ export default function InsightsScreen() {
         <Text style={styles.screenTitle}>{t('insights.title')}</Text>
       </Animated.View>
 
-      {sortedDates.length < 2 && logs.length === 0 ? (
+      {mode.kind === 'pregnant' ? (
+        <Animated.View entering={FadeInDown.duration(600).delay(200).springify()}>
+          <PregnancyInsights
+            pregnancy={mode.pregnancy}
+            visits={visits}
+            logs={logs}
+            todayISO={todayISO}
+            language={(settings?.language as 'en' | 'fr') ?? 'fr'}
+            calendarType={(settings?.calendarType as 'gregorian' | 'hijri') ?? 'gregorian'}
+          />
+        </Animated.View>
+      ) : sortedDates.length < 2 && logs.length === 0 ? (
         <Animated.View entering={FadeInDown.duration(600).delay(200).springify()}>
           <Card style={styles.emptyCard}>
             <Text style={styles.emptyText}>{t('insights.no_data')}</Text>

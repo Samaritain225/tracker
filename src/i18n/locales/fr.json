@@ -145,7 +145,16 @@
     "days_variance_one": "±{{count}} jour",
     "days_variance_other": "±{{count}} jours",
     "symptom_heatmap": "Tendances des symptômes",
-    "cycle_day": "Jour du cycle →"
+    "cycle_day": "Jour du cycle →",
+    "pregnancy_symptoms": "Symptômes par semaine",
+    "pregnancy_symptoms_empty": "Les symptômes que vous notez dans la fiche du jour apparaîtront ici, semaine par semaine.",
+    "pregnancy_symptoms_note": "Plus la case est foncée, plus il y a de jours cette semaine-là.",
+    "pregnancy_weight": "Poids aux rendez-vous",
+    "pregnancy_weight_empty": "Ajoutez votre poids à au moins deux rendez-vous pour le voir ici.",
+    "pregnancy_weight_change": "{{value}} kg depuis le premier rendez-vous avec un poids.",
+    "pregnancy_visits": "Rendez-vous",
+    "pregnancy_visits_count_one": "{{count}} rendez-vous pour l’instant",
+    "pregnancy_visits_count_other": "{{count}} rendez-vous pour l’instant"
   },
   "errors": {
     "duplicate_date": "Une période est déjà enregistrée à cette date",

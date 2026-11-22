@@ -125,3 +125,52 @@ export function buildJourney<V extends VisitLike, M extends MomentLike>(
     return 0;
   });
 }
+
+export type SymptomGrid = {
+  /** Every gestational week from the first logged one to `upToWeek`. */
+  weeks: number[];
+  /** One row per symptom, most logged first; counts are days per week. */
+  rows: { key: string; counts: number[] }[];
+};
+
+/**
+ * Symptoms by week for pregnancy Insights: how many days of each week
+ * each symptom was logged. Weeks with nothing logged stay in the grid as
+ * zeros, so gaps are visible rather than closed up.
+ */
+export function symptomGridByWeek(
+  pregnancy: Pick<PregnancyLike, 'lastPeriodDate' | 'scanDueDate' | 'endedOn'>,
+  logs: LogLike[],
+  upToWeek: number,
+  maxRows: number = 8,
+): SymptomGrid {
+  const start = gestationStartDate(pregnancy);
+  const end = pregnancy.endedOn ?? '9999-12-31';
+  const perWeek = new Map<number, Map<string, number>>();
+  const totals = new Map<string, number>();
+
+  for (const log of logs) {
+    if (log.date <= start || log.date > end) continue;
+    const { weeks } = gestationalAge(pregnancy, log.date);
+    for (const key of log.symptoms ?? []) {
+      const week = perWeek.get(weeks) ?? new Map<string, number>();
+      week.set(key, (week.get(key) ?? 0) + 1);
+      perWeek.set(weeks, week);
+      totals.set(key, (totals.get(key) ?? 0) + 1);
+    }
+  }
+
+  if (perWeek.size === 0) return { weeks: [], rows: [] };
+
+  const first = Math.min(...perWeek.keys());
+  const weeks = Array.from({ length: Math.max(0, upToWeek - first + 1) }, (_, i) => first + i);
+  const keys = [...totals.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, maxRows)
+    .map(([key]) => key);
+
+  return {
+    weeks,
+    rows: keys.map((key) => ({ key, counts: weeks.map((w) => perWeek.get(w)?.get(key) ?? 0) })),
+  };
+}

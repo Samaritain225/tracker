@@ -2,7 +2,7 @@
  * Tests for the Journey timeline.
  */
 
-import { buildJourney, summarizeWeeks } from './journey';
+import { buildJourney, summarizeWeeks, symptomGridByWeek } from './journey';
 
 const pregnancy = {
   lastPeriodDate: '2026-07-04',
@@ -97,5 +97,29 @@ describe('buildJourney', () => {
     const ended = { ...pregnancy, endedOn: '2027-04-08', outcome: 'birth' };
     const journey = buildJourney(ended, [], [], [], '2027-05-01');
     expect(journey).toEqual([{ type: 'ended', date: '2027-04-08', outcome: 'birth' }]);
+  });
+});
+
+describe('symptomGridByWeek', () => {
+  it('counts days per symptom per week, keeping empty weeks as zeros', () => {
+    const logs = [
+      { date: '2026-11-07', symptoms: ['fatigue', 'back_pain'] }, // week 18
+      { date: '2026-11-08', symptoms: ['fatigue'] }, // week 18
+      { date: '2026-11-22', symptoms: ['fatigue'] }, // week 20
+    ];
+    expect(symptomGridByWeek(pregnancy, logs, 20)).toEqual({
+      weeks: [18, 19, 20],
+      rows: [
+        { key: 'fatigue', counts: [2, 0, 1] },
+        { key: 'back_pain', counts: [1, 0, 0] },
+      ],
+    });
+  });
+
+  it('is empty when nothing was logged during the pregnancy', () => {
+    expect(symptomGridByWeek(pregnancy, [{ date: '2026-06-01', symptoms: ['cramps'] }], 20)).toEqual({
+      weeks: [],
+      rows: [],
+    });
   });
 });

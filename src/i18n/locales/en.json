@@ -145,7 +145,16 @@
     "days_variance_one": "±{{count}} day",
     "days_variance_other": "±{{count}} days",
     "symptom_heatmap": "Symptom Patterns",
-    "cycle_day": "Cycle day →"
+    "cycle_day": "Cycle day →",
+    "pregnancy_symptoms": "Symptoms by week",
+    "pregnancy_symptoms_empty": "Symptoms you log on the day sheet will show here, week by week.",
+    "pregnancy_symptoms_note": "Darker squares mean more days that week.",
+    "pregnancy_weight": "Weight at visits",
+    "pregnancy_weight_empty": "Add your weight to at least two visits to see it here.",
+    "pregnancy_weight_change": "{{value}} kg since the first visit with a weight.",
+    "pregnancy_visits": "Visits",
+    "pregnancy_visits_count_one": "{{count}} visit so far",
+    "pregnancy_visits_count_other": "{{count}} visits so far"
   },
   "errors": {
     "duplicate_date": "A period is already logged for this date",

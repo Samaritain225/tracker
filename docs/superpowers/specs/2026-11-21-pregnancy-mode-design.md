@@ -175,11 +175,12 @@ Photos are copied into the app's own document folder (`pregnancy-photos/`), and 
 
 ### Week-by-week content
 
-- Bundled JSON, one file per language: `src/content/pregnancy-weeks.en.json` and `.fr.json`.
-- One entry per completed week from 4 to 42, plus one shared entry for weeks 0 to 3 (before a test can show anything). Weeks past 42 show the week 42 entry. Each entry holds: size emoji, size comparison name, approximate length in cm, approximate weight in g, two or three sentences on the baby's development, one sentence on her body, and an optional milestone label.
-- Original text, written in plain language from standard public references, with no copied passages: the NHS week-by-week pregnancy guide and the American College of Obstetricians and Gynecologists for English, and Ameli (Assurance Maladie) and the Haute Autorité de Santé for French.
-- **Decided by the owner: no professional medical review.** Instead, the app lists its sources on an "About this information" screen, reached from the "This week" card, and keeps the "not medical advice" line on Home. Because nobody else checks it, the builder keeps every figure to the ranges those sources agree on, and avoids anything that could read as an instruction (what to eat, what to take, when to worry), pointing to her midwife or doctor instead.
-- A test checks that both files have every week and every field, so a missing translation fails the build instead of showing a blank card.
+- Sizes live in a language-free file, `src/content/pregnancy-weeks.data.json`; text in one file per language, `pregnancy-weeks.en.json` and `.fr.json`.
+- One entry per completed week from 4 to 41, plus one shared entry for weeks 0 to 3. Weeks past 41 show the week 41 entry: the NHS has no week 42 page. Each entry holds a size emoji, a size comparison, an approximate length with how it was measured, two or three sentences on the baby's development, one sentence on her body, and an optional milestone (halfway, full term, due date).
+- No weights: the NHS week pages give lengths only, apart from the 3 to 4 kg range at week 41, which is in the text.
+- Original text, written from the NHS week-by-week guide to pregnancy, the NHS page on scans, and Service-Public.gouv.fr for French practice. ACOG, Ameli, the HAS and Santé publique France were planned as sources but could not be read when the content was written (each blocked automated reading), so they are not cited.
+- **Decided by the owner: no professional medical review.** The app lists its sources on an "About this information" screen, reached from the "This week" card, and says plainly that the notes have not been reviewed by a midwife or doctor. Every figure stays within what the sources state. Nothing tells her what to eat or take; the only safety lines point her to her midwife (reduced movements, swelling).
+- A test checks that both languages have every week and every field, so a missing translation fails the build instead of showing a blank card.
 
 ### Backup format version 2
 
