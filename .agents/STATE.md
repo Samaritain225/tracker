@@ -20,7 +20,7 @@ order. Each merge into `main` builds a production APK.
 
 ## Next
 
-1. Stage 5, Islamic option (haid, istihada, nifas): needs the user to choose which schools to support and who checks the rulings.
+1. Stage 5, Islamic option (haid, istihada, nifas, prayers and fasts to make up): being designed. Decided 2026-11-22: Maliki school only, structured so other schools can be added later. Waiting on who checks the rulings before release.
 2. Stage 6, extras: patterns from her own logs, a doctor summary, custom symptoms.
 
 Lower value: calendar accessibility labels are hardcoded English Gregorian; the
