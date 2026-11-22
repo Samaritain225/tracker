@@ -1,39 +1,30 @@
 # Where we are
 
-Stage 1 is pull request 2 (`fix/logging-flow-audit` into `main`), open and
-waiting on the user to merge. Every fix under
-"Recently landed" lives only on that branch, so `main` has none of them.
-Typecheck clean, 108 tests passing, and verified by hand on the Lumi_API35
-emulator on 2026-08-17.
+Eight stacked pull requests are open, each waiting on the user to merge in
+order. Each merge into `main` builds a production APK.
 
-The 2026-08-17 logic audit report is no longer on disk (it was under
-`~/.claude/plans/`). Its findings survive only in the lines below.
+- Stage 1, pull request 2: the August logic-audit fixes (`fix/logging-flow-audit`).
+- Stage 2, pull request 3: Expo SDK 55 to 58 and checks before every build (`chore/expo-sdk-58`).
+- Stage 3, pull request 4: foundations (`feat/foundations`).
+- Stage 4 part 1, pull request 5: pregnancy foundation (`feat/pregnancy-foundation`), including the approved design.
+- Stage 4 part 2, pull request 6: the Journey (`feat/pregnancy-journey`).
+- Stage 4 part 3, pull request 7: weekly content and pregnancy Insights (`feat/pregnancy-content`).
+- Stage 5, pull request 8: the Islamic option, Maliki school (`feat/islamic-option`), including its design.
+- Stage 6, pull request 9: custom symptoms, patterns and a summary for a doctor (`feat/extras`).
 
-## Recently landed (on fix/logging-flow-audit)
+## Recently landed
 
-- Saved language now applies at cold start through `LocaleProvider`; before, picking English had no effect after a restart.
-- A failed save in day-details no longer shows a success tick, because the mutators now return their outcome.
-- The "period ended" switch can no longer overwrite an end date the user already confirmed.
-- A mistyped date can no longer put ovulation before its own period.
-- `android:allowBackup` is false, so the plaintext database is no longer uploaded to Google Drive backup.
-- The symptom heatmap scrolls horizontally; its right half used to be unreachable.
-- A day inside an open period shows "Day 3 of the period that started…" instead of offering a second "period started".
-- Implausibly short cycle gaps are discarded and long ones kept; `hasPlausibleCycleData` gates the "calculated" label.
-- App lock scope is settled and documented in BRAIN and the `app-lock-provider.tsx` header.
+- Stage 5: the Maliki Islamic option (counts, reference limits, Ramadan fasts to make up, sources), verified on the emulator on 2026-11-22.
+- Stage 6: custom symptoms (added from the day sheet, renamed or hidden under Settings > My symptoms), a Patterns card in Insights, and a one-page "Summary for a doctor" shared as a PDF through `expo-print`. Built on the builder's picks, as the owner asked, with no design conversation. Verified on the emulator on 2026-11-22 in English; the PDF was opened and read.
+
+## Decided, still true for later schools
+
+- No verdicts: the app counts and quotes, never says she may or must pray or fast. No scholar has checked the references; the app says so.
+- A new school is one file in `src/utils/fiqh/` plus its text; screens never hold a number.
 
 ## Next
 
-Merge `fix/logging-flow-audit` into `main`.
-
-Then, in rough order: there is no "delete all data" control; export is CSV-only,
-one-way, and drops `endDate`, so it cannot restore; period reminders use a
-one-shot DATE trigger, so they stop after one cycle for anyone who does not open
-the app.
-
-A late period is handled badly: the phase banner says how many days late, but
-the summary card shows "Next period: N days ago", the calendar keeps the missed
-prediction and projects future ones from it, and lateness never ends or
-suggests a pregnancy test.
+1. All six stages from the original plan are built. Nothing new is planned until the owner picks what comes next.
 
 Lower value: calendar accessibility labels are hardcoded English Gregorian; the
 phase model degenerates at the extremes of its own slider settings; every screen
@@ -45,20 +36,5 @@ The GitHub repo is public and commit `974aee7` still contains `credentials.json`
 with the Android keystore passwords. The keystore file itself was never
 committed. Waiting on whether to change those passwords.
 
-Product direction, decided 2026-11-21: Lumi is for anyone who menstruates,
-with Islamic rulings on menstruation (haid and istihada) as an optional mode on
-top. A pregnancy mode is wanted: a late period leads into it, it tracks the week
-and stage, symptoms, visit dates, due date and the baby's star sign, and the user
-can end it (birth or loss) and go back to cycle tracking. "Lively" means both her
-own data and week-by-week baby development content, in French and English.
-Pregnancy screen picked: Home becomes a week ring with the baby-size comparison,
-due date, star sign and next visit; History becomes a Journey timeline tab.
-Mockups are in `.superpowers/brainstorm/` (gitignored). After a birth: a recovery
-period, then back to period tracking, and the Journey is kept. Agreed order of
-the four projects: foundations, pregnancy mode, Islamic option, extras. Existing
-user data must survive every change. Expo should be upgraded from SDK 55 to the
-latest (SDK 58 as of 2026-11-21, React Native 0.88). Delivery is one pull request
-per stage, merged in turn. Stage 2 (Expo SDK 58 and pipeline checks) is on
-`chore/expo-sdk-58`, stacked on stage 1. Stage 3 (foundations) is designed and
-approved in `docs/superpowers/specs/2026-11-21-foundations-design.md`, not
-started. Nothing is built yet.
+The first production APK after stage 2 is the first one shrunk by R8 (an SDK 58
+default). Only debug builds were tested, so it needs opening once before sharing.

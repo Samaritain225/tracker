@@ -122,7 +122,8 @@ describe('computePhase — long cycle (40 days)', () => {
 
 describe('computePhase — late period (regression target for fix 2c)', () => {
   // The last period started 34 days ago, so today is day 35 of a
-  // 28-day cycle — 7 days past when the next period was due. Before
+  // 28-day cycle. The next period was due on day 29, 28 days after the
+  // last one started — 6 days ago. Before
   // fix 2c, computePhase wrapped via modulo and incorrectly reported
   // this as day 7 of a brand-new cycle (follicular). It now holds the
   // phase at 'luteal' and surfaces how late the period is via `isLate`
@@ -130,11 +131,25 @@ describe('computePhase — late period (regression target for fix 2c)', () => {
   const cycleLength = 28;
   const periodDurationDays = 5;
 
-  it('does not restart the cycle when 7 days late', () => {
+  it('does not restart the cycle when 6 days late', () => {
     const info = computePhase(lastPeriodNDaysAgo(34), cycleLength, periodDurationDays);
     expect(info?.phase).toBe('luteal');
     expect(info?.dayInCycle).toBe(35);
     expect(info?.isLate).toBe(true);
-    expect(info?.daysLate).toBe(7);
+    expect(info?.daysLate).toBe(6);
+  });
+
+  it('is not late on the day the period is due', () => {
+    // Started 28 days ago: today is day 29, the first day of the next
+    // cycle, which is when the period is expected rather than overdue.
+    const info = computePhase(lastPeriodNDaysAgo(28), cycleLength, periodDurationDays);
+    expect(info?.isLate).toBe(false);
+    expect(info?.daysLate).toBe(0);
+  });
+
+  it('is one day late the day after it was due', () => {
+    const info = computePhase(lastPeriodNDaysAgo(29), cycleLength, periodDurationDays);
+    expect(info?.isLate).toBe(true);
+    expect(info?.daysLate).toBe(1);
   });
 });

@@ -48,6 +48,31 @@ function AppContent() {
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="+not-found" options={{ title: 'Oops!' }} />
+        <Stack.Screen
+          name="pregnancy/setup"
+          options={{ presentation: 'modal', headerShown: false }}
+        />
+        <Stack.Screen
+          name="pregnancy/end"
+          options={{ presentation: 'modal', headerShown: false }}
+        />
+        <Stack.Screen
+          name="pregnancy/visit"
+          options={{ presentation: 'modal', headerShown: false }}
+        />
+        <Stack.Screen
+          name="pregnancy/moment"
+          options={{ presentation: 'modal', headerShown: false }}
+        />
+        <Stack.Screen name="pregnancy/journey/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="islamic/fasts" options={{ presentation: 'modal', headerShown: false }} />
+        <Stack.Screen name="islamic/sources" options={{ presentation: 'modal', headerShown: false }} />
+        <Stack.Screen name="symptoms" options={{ presentation: 'modal', headerShown: false }} />
+        <Stack.Screen name="summary" options={{ presentation: 'modal', headerShown: false }} />
+        <Stack.Screen
+          name="pregnancy/sources"
+          options={{ presentation: 'modal', headerShown: false }}
+        />
         <Stack.Screen 
           name="day/[date]" 
           options={{ 

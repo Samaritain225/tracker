@@ -563,3 +563,106 @@ describe('buildCycleWindows', () => {
     expect(windows[0].end).toBe('2025-01-03');
   });
 });
+
+describe('buildCycleWindows — overdue period', () => {
+  const duration = 5;
+  const periods = [
+    { startDate: '2026-01-01', endDate: '2026-01-05' },
+    { startDate: '2026-01-29', endDate: '2026-02-02' },
+  ];
+
+  it('projects from the due date while the period is not yet due', () => {
+    // Due 2026-02-26 (28 days after 2026-01-29); today is before that.
+    const windows = buildCycleWindows(periods, new Set(), 28, duration, '2026-02-20');
+    const predictions = windows.filter((w) => w.isPrediction);
+    expect(predictions[0].start).toBe('2026-02-26');
+    expect(predictions[1].start).toBe('2026-03-26');
+  });
+
+  it('keeps the due date on the day the period is due', () => {
+    const windows = buildCycleWindows(periods, new Set(), 28, duration, '2026-02-26');
+    expect(windows.find((w) => w.isPrediction)?.start).toBe('2026-02-26');
+  });
+
+  it('moves the next prediction to today once the period is overdue', () => {
+    // Five days past the 2026-02-26 due date.
+    const windows = buildCycleWindows(periods, new Set(), 28, duration, '2026-03-03');
+    const predictions = windows.filter((w) => w.isPrediction);
+    expect(predictions[0].start).toBe('2026-03-03');
+    expect(predictions[1].start).toBe('2026-03-31');
+  });
+
+  it('paints no predicted day before today while overdue', () => {
+    const today = '2026-03-03';
+    const windows = buildCycleWindows(periods, new Set(), 28, duration, today);
+    for (const w of windows.filter((x) => x.isPrediction)) {
+      expect(w.start >= today).toBe(true);
+    }
+    expect(getDayType(parseISODate('2026-02-27'), windows)).not.toBe('predicted');
+  });
+
+  it('projects from the due date when today is not given', () => {
+    const windows = buildCycleWindows(periods, new Set(), 28, duration);
+    expect(windows.find((w) => w.isPrediction)?.start).toBe('2026-02-26');
+  });
+});
+
+describe('cycle length around a pregnancy', () => {
+  // Regular 28-day cycles, then a pregnancy (last period 2026-07-04,
+  // birth 2027-04-08), then the first period back on 2027-06-20.
+  const starts = ['2026-04-11', '2026-05-09', '2026-06-06', '2026-07-04', '2027-06-20'];
+  const spans = [{ start: '2026-07-04', end: '2027-04-08' }];
+
+  it('leaves the gap containing the pregnancy out of the average', () => {
+    expect(computeCycleLength(starts, 30, spans)).toBe(28);
+    expect(hasPlausibleCycleData(starts, spans)).toBe(true);
+  });
+
+  it('would otherwise average in a year-long gap when it is the only recent one', () => {
+    // Just the period before and the first one after: without the span,
+    // the long-gap rule keeps the 351-day "cycle".
+    const onlyAround = ['2026-07-04', '2027-06-20'];
+    expect(computeCycleLength(onlyAround, 30)).toBe(351);
+    expect(computeCycleLength(onlyAround, 30, spans)).toBe(30);
+    expect(hasPlausibleCycleData(onlyAround, spans)).toBe(false);
+  });
+
+  it('keeps the gap just before the pregnancy', () => {
+    // 2026-06-06 to 2026-07-04 ends where the pregnancy starts.
+    expect(computeCycleVariance(starts, spans)).toBe(0);
+  });
+
+  it('drops every gap after the start of a pregnancy still in progress', () => {
+    const active = [{ start: '2026-07-04', end: '9999-12-31' }];
+    expect(computeCycleLength([...starts.slice(0, 4), '2026-08-20'], 30, active)).toBe(28);
+  });
+});
+
+describe('buildCycleWindows without predictions', () => {
+  it('keeps logged periods and projects nothing', () => {
+    const periods = [
+      { startDate: '2026-06-06', endDate: '2026-06-10' },
+      { startDate: '2026-07-04', endDate: '2026-07-08' },
+    ];
+    const windows = buildCycleWindows(periods, new Set(), 28, 5, '2026-11-21', false);
+    expect(windows).toHaveLength(2);
+    expect(windows.every((w) => !w.isPrediction)).toBe(true);
+  });
+});
+
+describe('buildCycleWindows around a pregnancy', () => {
+  it('uses the average, not the gap across a pregnancy, for the cycle before it', () => {
+    // Last period before the pregnancy 2026-10-13; a short pregnancy
+    // ending 2026-11-01; first period back 2026-11-22 — 40 days later,
+    // which would otherwise pass as a plausible cycle length.
+    const periods = [
+      { startDate: '2026-10-13', endDate: '2026-10-17' },
+      { startDate: '2026-11-22', endDate: null },
+    ];
+    const spans = [{ start: '2026-10-13', end: '2026-11-01' }];
+    const withSpan = buildCycleWindows(periods, new Set(), 28, 5, '2026-11-22', true, spans);
+    expect(withSpan[0].ovulation).toBe('2026-10-27'); // 13 Oct + 28 − 14
+    const without = buildCycleWindows(periods, new Set(), 28, 5, '2026-11-22', true);
+    expect(without[0].ovulation).toBe('2026-11-08'); // 13 Oct + 40 − 14
+  });
+});

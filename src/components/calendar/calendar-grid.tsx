@@ -35,6 +35,9 @@ type Props = {
    * midnight instead of captured once on mount. */
   todayISO: string;
   onDayPress: (isoDate: string) => void;
+  /** Day to ring instead of today — lets the grid double as a date
+   * picker, ringing the chosen day. Defaults to today. */
+  markedISO?: string;
 };
 
 const WEEKDAY_KEYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -49,6 +52,7 @@ export function CalendarGrid({
   language,
   todayISO,
   onDayPress,
+  markedISO,
 }: Props) {
   const { colors } = useTheme();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
@@ -97,7 +101,7 @@ export function CalendarGrid({
     return days;
   }, [currentYear, currentMonth]);
 
-  const today = useMemo(() => parseISODate(todayISO), [todayISO]);
+  const today = useMemo(() => parseISODate(markedISO ?? todayISO), [markedISO, todayISO]);
 
   const cycles = cycleInfo?.cycles ?? [];
 
