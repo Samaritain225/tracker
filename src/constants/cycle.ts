@@ -10,8 +10,15 @@ export const MAX_CYCLE_DAYS = 40;
 export const MIN_PERIOD_DURATION_DAYS = 3;
 export const MAX_PERIOD_DURATION_DAYS = 8;
 export const OVULATION_OFFSET_FROM_END = 14;
-export const FERTILE_DAYS_BEFORE_OVULATION = 3;
-export const FERTILE_DAYS_AFTER_OVULATION = 4;
+/**
+ * Fertile days run from 5 days before ovulation, because sperm can live
+ * up to 5 days, to 3 days after it: wider than the egg's one day, to
+ * allow for ovulation landing a little later than the calendar says.
+ * This window is what she may rely on for knowing when protection
+ * matters, so it errs wide; the owner chose these values.
+ */
+export const FERTILE_DAYS_BEFORE_OVULATION = 5;
+export const FERTILE_DAYS_AFTER_OVULATION = 3;
 
 /** How many of the most recent logged cycles feed the average/variance. */
 export const RECENT_CYCLE_WINDOW = 6;

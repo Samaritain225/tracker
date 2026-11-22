@@ -170,11 +170,11 @@ describe('computeNextPeriod / computeOvulationDay', () => {
 });
 
 describe('computeFertileWindow', () => {
-  it('spans 3 days before and 4 days after ovulation', () => {
+  it('spans 5 days before and 3 days after ovulation', () => {
     const ovulation = parseISODate('2025-01-15');
     const window = computeFertileWindow(ovulation);
-    expect(toISODate(window.start)).toBe('2025-01-12');
-    expect(toISODate(window.end)).toBe('2025-01-19');
+    expect(toISODate(window.start)).toBe('2025-01-10');
+    expect(toISODate(window.end)).toBe('2025-01-18');
   });
 });
 
