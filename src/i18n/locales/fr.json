@@ -214,8 +214,8 @@
   "pregnancy": {
     "title": "Votre grossesse",
     "week_label": "Semaine {{week}}",
-    "age": "{{weeks}} semaines + {{days}} jours",
-    "age_short": "+ {{days}} jours",
+    "age": "{{weeks}} + {{days}}",
+    "age_short": "+ {{days}}",
     "trimester_1": "1er trimestre",
     "trimester_2": "2e trimestre",
     "trimester_3": "3e trimestre",
@@ -304,7 +304,11 @@
     "sources_counting": "Les semaines sont comptées à partir du premier jour des dernières règles, comme le font la plupart des services de santé.",
     "source_nhs": "NHS — Guide de la grossesse semaine par semaine (Royaume-Uni, en anglais)",
     "source_nhs_scans": "NHS — Les échographies de grossesse (Royaume-Uni, en anglais)",
-    "source_sp": "Service-Public.gouv.fr — Grossesse : examens médicaux (France)"
+    "source_sp": "Service-Public.gouv.fr — Grossesse : examens médicaux (France)",
+    "weeks_count_one": "{{count}} semaine",
+    "weeks_count_other": "{{count}} semaines",
+    "days_count_one": "{{count}} jour",
+    "days_count_other": "{{count}} jours"
   },
   "journey": {
     "title": "Votre parcours",

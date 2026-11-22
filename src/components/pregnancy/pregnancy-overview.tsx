@@ -28,6 +28,7 @@ import {
 import { STAR_SIGN_SYMBOLS, likelyStarSign } from '@/utils/zodiac';
 import { contentForWeek } from '@/utils/pregnancy-content';
 import { WeekRing } from './week-ring';
+import { formatAge } from './format-age';
 
 type Props = {
   pregnancy: Pregnancy;
@@ -83,7 +84,7 @@ export function PregnancyOverview({
   return (
     <View style={styles.wrap}>
       <WeekRing age={age} trimester={trimester} emoji={week.emoji} />
-      <Text style={styles.age}>{t('pregnancy.age', { weeks: age.weeks, days: age.days })}</Text>
+      <Text style={styles.age}>{formatAge(t, age)}</Text>
       {sizeParts.length > 0 ? <Text style={styles.sizeLine}>{sizeParts.join(' · ')}</Text> : null}
 
       <Card style={styles.weekCard}>

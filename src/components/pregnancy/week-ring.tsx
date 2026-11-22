@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { Typography } from '@/constants/theme';
 import { useTheme } from '@/providers/theme-provider';
 import type { GestationalAge, Trimester } from '@/utils/pregnancy';
+import { formatAge, formatDaysShort } from './format-age';
 
 const WEEKS = 40;
 const SIZE = 216;
@@ -32,7 +33,7 @@ export function WeekRing({ age, trimester, emoji }: Props) {
     <View
       style={styles.ring}
       accessible
-      accessibilityLabel={`${t('pregnancy.age', { weeks: age.weeks, days: age.days })}, ${t(`pregnancy.trimester_${trimester}`)}`}
+      accessibilityLabel={`${formatAge(t, age)}, ${t(`pregnancy.trimester_${trimester}`)}`}
     >
       {Array.from({ length: WEEKS }, (_, i) => {
         // Start at the top and run clockwise.
@@ -61,7 +62,7 @@ export function WeekRing({ age, trimester, emoji }: Props) {
           {t('pregnancy.week_label', { week: age.weeks })}
         </Text>
         <Text style={[styles.days, { color: colors.textSecondary }]}>
-          {t('pregnancy.age_short', { days: age.days })}
+          {formatDaysShort(t, age.days)}
         </Text>
         <Text style={[styles.trimester, { color: colors.primary }]}>
           {t(`pregnancy.trimester_${trimester}`)}

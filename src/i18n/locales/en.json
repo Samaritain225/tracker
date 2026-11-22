@@ -214,8 +214,8 @@
   "pregnancy": {
     "title": "Your pregnancy",
     "week_label": "Week {{week}}",
-    "age": "{{weeks}} weeks + {{days}} days",
-    "age_short": "+ {{days}} days",
+    "age": "{{weeks}} + {{days}}",
+    "age_short": "+ {{days}}",
     "trimester_1": "1st trimester",
     "trimester_2": "2nd trimester",
     "trimester_3": "3rd trimester",
@@ -304,7 +304,11 @@
     "sources_counting": "Weeks are counted from the first day of your last period, as most health services do.",
     "source_nhs": "NHS — Week-by-week guide to pregnancy (UK)",
     "source_nhs_scans": "NHS — Ultrasound scans in pregnancy (UK)",
-    "source_sp": "Service-Public.gouv.fr — Grossesse : examens médicaux (France)"
+    "source_sp": "Service-Public.gouv.fr — Grossesse : examens médicaux (France)",
+    "weeks_count_one": "{{count}} week",
+    "weeks_count_other": "{{count}} weeks",
+    "days_count_one": "{{count}} day",
+    "days_count_other": "{{count}} days"
   },
   "journey": {
     "title": "Your journey",
