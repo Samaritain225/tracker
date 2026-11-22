@@ -649,3 +649,20 @@ describe('buildCycleWindows without predictions', () => {
     expect(windows.every((w) => !w.isPrediction)).toBe(true);
   });
 });
+
+describe('buildCycleWindows around a pregnancy', () => {
+  it('uses the average, not the gap across a pregnancy, for the cycle before it', () => {
+    // Last period before the pregnancy 2026-10-13; a short pregnancy
+    // ending 2026-11-01; first period back 2026-11-22 — 40 days later,
+    // which would otherwise pass as a plausible cycle length.
+    const periods = [
+      { startDate: '2026-10-13', endDate: '2026-10-17' },
+      { startDate: '2026-11-22', endDate: null },
+    ];
+    const spans = [{ start: '2026-10-13', end: '2026-11-01' }];
+    const withSpan = buildCycleWindows(periods, new Set(), 28, 5, '2026-11-22', true, spans);
+    expect(withSpan[0].ovulation).toBe('2026-10-27'); // 13 Oct + 28 − 14
+    const without = buildCycleWindows(periods, new Set(), 28, 5, '2026-11-22', true);
+    expect(without[0].ovulation).toBe('2026-11-08'); // 13 Oct + 40 − 14
+  });
+});

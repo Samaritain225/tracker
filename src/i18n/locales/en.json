@@ -25,7 +25,7 @@
     "estimated": "Estimated",
     "days_late_one": "{{count}} day late",
     "days_late_other": "{{count}} days late",
-    "after_pregnancy": "Settling after pregnancy"
+    "after_pregnancy": "After pregnancy"
   },
   "history": {
     "title": "Period history",
@@ -105,7 +105,9 @@
     "restore_pregnancies_one": "It also holds 1 pregnancy, with its visits, moments and photos.",
     "restore_pregnancies_other": "It also holds {{count}} pregnancies, with their visits, moments and photos.",
     "restore_missing_photos_one": "1 photo wasn't in the file and couldn't be restored.",
-    "restore_missing_photos_other": "{{count}} photos weren't in the file and couldn't be restored."
+    "restore_missing_photos_other": "{{count}} photos weren't in the file and couldn't be restored.",
+    "restore_adds_pregnancies_one": "1 pregnancy will be added too.",
+    "restore_adds_pregnancies_other": "{{count}} pregnancies will be added too."
   },
   "legend": {
     "period": "Period",

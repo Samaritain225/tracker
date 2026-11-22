@@ -372,6 +372,12 @@ const MAX_PROJECTED_CYCLES = 24;
  * `includePredictions` is false while pregnant or recovering from a
  * pregnancy: logged periods still appear, but nothing is projected.
  *
+ * A gap to the next period that contains a pregnancy (`excludedSpans`)
+ * is not that cycle's real length either, so it falls back to the
+ * average, like an implausible gap does. Otherwise the cycle before a
+ * short pregnancy measured itself up to the first period after it, and
+ * painted a fertile window into the weeks after the birth.
+ *
  * Returns an empty array when no periods are logged — there's nothing
  * to build a series from.
  */
@@ -382,6 +388,7 @@ export function buildCycleWindows(
   defaultPeriodDurationDays: number,
   todayISO?: string,
   includePredictions: boolean = true,
+  excludedSpans: DateSpan[] = [],
 ): CycleWindow[] {
   if (sortedPeriods.length === 0) {
     return [];
@@ -410,8 +417,12 @@ export function buildCycleWindows(
     const realGap = next
       ? daysBetween(parseISODate(period.startDate), parseISODate(next.startDate))
       : null;
+    const spansPregnancy =
+      next !== undefined &&
+      excludedSpans.some((span) => period.startDate <= span.end && next.startDate > span.start);
     const cycleLengthForThisWindow =
       realGap !== null &&
+      !spansPregnancy &&
       realGap >= MIN_PLAUSIBLE_CYCLE_GAP_DAYS &&
       realGap <= MAX_PLAUSIBLE_CYCLE_GAP_DAYS
         ? realGap

@@ -25,7 +25,7 @@
     "estimated": "Estimé",
     "days_late_one": "{{count}} jour de retard",
     "days_late_other": "{{count}} jours de retard",
-    "after_pregnancy": "Cycle en reprise après la grossesse"
+    "after_pregnancy": "Après grossesse"
   },
   "history": {
     "title": "Historique des règles",
@@ -105,7 +105,9 @@
     "restore_pregnancies_one": "Il contient aussi 1 grossesse, avec ses rendez-vous, moments et photos.",
     "restore_pregnancies_other": "Il contient aussi {{count}} grossesses, avec leurs rendez-vous, moments et photos.",
     "restore_missing_photos_one": "1 photo n'était pas dans le fichier et n'a pas pu être restaurée.",
-    "restore_missing_photos_other": "{{count}} photos n'étaient pas dans le fichier et n'ont pas pu être restaurées."
+    "restore_missing_photos_other": "{{count}} photos n'étaient pas dans le fichier et n'ont pas pu être restaurées.",
+    "restore_adds_pregnancies_one": "1 grossesse sera aussi ajoutée.",
+    "restore_adds_pregnancies_other": "{{count}} grossesses seront aussi ajoutées."
   },
   "legend": {
     "period": "Règles",

@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 
 import { DateField } from '@/components/pregnancy/date-field';
+import { LoadingScreen } from '@/components/ui/loading-screen';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { SegmentedControl } from '@/components/ui/segmented-control';
@@ -39,6 +40,21 @@ import {
 const SCAN_TOLERANCE_DAYS = 30;
 
 export default function PregnancySetupScreen() {
+  const { periods, isLoading: periodsLoading } = usePeriods();
+  const { pregnancies, isLoading: pregnanciesLoading } = usePregnancies();
+
+  // The form's starting dates come from this data, so it waits for both
+  // queries: mounted earlier, it prefilled "28 days ago" instead of the
+  // latest logged period, because the period list was still empty.
+  if (periodsLoading || pregnanciesLoading) {
+    return <LoadingScreen />;
+  }
+
+  const latestPeriod = periods.length > 0 ? periods[periods.length - 1].startDate : null;
+  return <PregnancySetupForm latestPeriod={latestPeriod} />;
+}
+
+function PregnancySetupForm({ latestPeriod }: { latestPeriod: string | null }) {
   const { edit } = useLocalSearchParams<{ edit?: string }>();
   const isEdit = edit === '1';
   const router = useRouter();
@@ -48,14 +64,12 @@ export default function PregnancySetupScreen() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const todayISO = useToday();
   const { settings } = useSettings();
-  const { periods } = usePeriods();
   const { pregnancies, startPregnancy, updatePregnancyDates } = usePregnancies();
 
   const language = (settings?.language as 'en' | 'fr') ?? 'fr';
   const calendarType = (settings?.calendarType as 'gregorian' | 'hijri') ?? 'gregorian';
   const active = isEdit ? findActivePregnancy(pregnancies) : null;
 
-  const latestPeriod = periods.length > 0 ? periods[periods.length - 1].startDate : null;
   const [lastPeriodDate, setLastPeriodDate] = useState(
     () =>
       active?.lastPeriodDate ??

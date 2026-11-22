@@ -234,6 +234,9 @@ export default function SettingsScreen() {
     const details = [
       contents,
       t('settings.restore_adds', describeCounts(plan.periodsToAdd.length, plan.logsToAdd.length)),
+      plan.pregnanciesToAdd.length > 0
+        ? t('settings.restore_adds_pregnancies', { count: plan.pregnanciesToAdd.length })
+        : null,
       kept > 0 ? t('settings.restore_kept', { count: kept }) : null,
       plan.settingsToApply ? t('settings.restore_settings') : null,
     ]

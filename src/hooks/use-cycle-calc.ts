@@ -136,6 +136,7 @@ export function useCycleCalc(
       periodDuration,
       todayISO,
       inCycleMode,
+      spans,
     );
 
     // The nearest predicted cycle is the "next period" convenience

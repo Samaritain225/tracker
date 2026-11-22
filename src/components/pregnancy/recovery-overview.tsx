@@ -52,6 +52,11 @@ export function RecoveryOverview({
     daysBetween(parseISODate(pregnancy.endedOn ?? todayISO), parseISODate(todayISO)),
   );
 
+  // The day the pregnancy ended still belongs to it, so a period can't
+  // start that day; the button appears from the next day on. Offering it
+  // on day 0 opened a day sheet with no period switch to press.
+  const canLogPeriodBack = daysSince > 0;
+
   const handlePeriodBack = () => {
     if (outcome === 'birth' && daysSince < POSTPARTUM_CONFIRM_DAYS) {
       Alert.alert(t('pregnancy.period_back_early_title'), t('pregnancy.period_back_early_body'), [
@@ -71,12 +76,14 @@ export function RecoveryOverview({
           <Text style={styles.body}>{t('pregnancy.loss_body')}</Text>
         </Card>
         <Text style={styles.note}>{t('pregnancy.fertility_warning')}</Text>
-        <Button
-          label={t('pregnancy.period_back')}
-          onPress={handlePeriodBack}
-          variant="secondary"
-          fullWidth
-        />
+        {canLogPeriodBack ? (
+          <Button
+            label={t('pregnancy.period_back')}
+            onPress={handlePeriodBack}
+            variant="secondary"
+            fullWidth
+          />
+        ) : null}
       </View>
     );
   }
@@ -112,12 +119,15 @@ export function RecoveryOverview({
         )}
       </Card>
 
-      <Button
-        label={t('pregnancy.period_back')}
-        onPress={handlePeriodBack}
-        variant="secondary"
-        fullWidth
-      />
+      {canLogPeriodBack ? (
+        <Button
+          label={t('pregnancy.period_back')}
+          onPress={handlePeriodBack}
+          variant="secondary"
+          fullWidth
+        />
+
+      ) : null}
     </View>
   );
 }
