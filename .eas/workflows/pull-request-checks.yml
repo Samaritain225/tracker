@@ -1,10 +1,11 @@
 name: Pull Request Checks
 
-# Runs the same checks as the production workflow on every pull request,
-# without building an APK, so cloud build credits are only spent on main.
+# Runs the same checks as the production workflow on every pull request
+# into develop (day-to-day work) or main (a release), without building an
+# APK, so cloud build credits are only spent when main changes.
 on:
   pull_request:
-    branches: ['main']
+    branches: ['main', 'develop']
 
 defaults:
   tools:

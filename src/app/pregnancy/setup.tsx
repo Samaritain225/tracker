@@ -28,13 +28,20 @@ import { useSettings } from '@/hooks/use-settings';
 import { useToday } from '@/hooks/use-today';
 import { useTheme } from '@/providers/theme-provider';
 import { addDays, daysBetween, formatDisplayDate, parseISODate, toISODate } from '@/utils/date';
+import { computeCycleLength, hasPlausibleCycleData } from '@/utils/cycle';
 import {
+  STANDARD_CYCLE_DAYS,
   calculatedDueDate,
+  cycleAdjustmentDays,
+  datingCycleLength,
   effectiveDueDate,
   findActivePregnancy,
   gestationalAge,
+  pregnancySpans,
 } from '@/utils/pregnancy';
+import type { DateSpan } from '@/utils/pregnancy';
 import { formatAge } from '@/components/pregnancy/format-age';
+import { HowLink } from '@/components/ui/how-link';
 
 /** How far a scan due date may sit from the one worked out from the
  * last period before the two are treated as contradicting each other. */
@@ -52,10 +59,22 @@ export default function PregnancySetupScreen() {
   }
 
   const latestPeriod = periods.length > 0 ? periods[periods.length - 1].startDate : null;
-  return <PregnancySetupForm latestPeriod={latestPeriod} />;
+  const periodDates = periods.map((p) => p.startDate).sort();
+  // Other pregnancies' gaps aren't cycles; this one's own span is left
+  // out so editing it doesn't hide the cycles that led up to it.
+  const otherSpans = pregnancySpans(pregnancies.filter((p) => p.endedOn !== null));
+  return <PregnancySetupForm latestPeriod={latestPeriod} periodDates={periodDates} otherSpans={otherSpans} />;
 }
 
-function PregnancySetupForm({ latestPeriod }: { latestPeriod: string | null }) {
+function PregnancySetupForm({
+  latestPeriod,
+  periodDates,
+  otherSpans,
+}: {
+  latestPeriod: string | null;
+  periodDates: string[];
+  otherSpans: DateSpan[];
+}) {
   const { edit } = useLocalSearchParams<{ edit?: string }>();
   const isEdit = edit === '1';
   const router = useRouter();
@@ -82,7 +101,16 @@ function PregnancySetupForm({ latestPeriod }: { latestPeriod: string | null }) {
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
 
-  const draft = { lastPeriodDate, scanDueDate };
+  // Her usual cycle length from the cycles before this last period, so
+  // the due date moves for cycles longer or shorter than 28 days.
+  const cycleLengthDays = useMemo(() => {
+    const before = periodDates.filter((d) => d <= lastPeriodDate);
+    if (!hasPlausibleCycleData(before, otherSpans)) return null;
+    return datingCycleLength(computeCycleLength(before, STANDARD_CYCLE_DAYS, otherSpans));
+  }, [periodDates, lastPeriodDate, otherSpans]);
+  const adjustment = cycleAdjustmentDays(cycleLengthDays);
+
+  const draft = { lastPeriodDate, scanDueDate, cycleLengthDays };
   const dueISO = effectiveDueDate(draft);
   const age = gestationalAge(draft, todayISO);
 
@@ -90,7 +118,7 @@ function PregnancySetupForm({ latestPeriod }: { latestPeriod: string | null }) {
     lastPeriodDate > todayISO
       ? t('pregnancy.error_future')
       : scanDueDate &&
-          Math.abs(daysBetween(parseISODate(calculatedDueDate(lastPeriodDate)), parseISODate(scanDueDate))) >
+          Math.abs(daysBetween(parseISODate(calculatedDueDate(lastPeriodDate, cycleLengthDays)), parseISODate(scanDueDate))) >
             SCAN_TOLERANCE_DAYS
         ? t('pregnancy.error_scan_range')
         : null;
@@ -114,7 +142,7 @@ function PregnancySetupForm({ latestPeriod }: { latestPeriod: string | null }) {
       setScanDueDate(null);
       setEditing('last_period');
     } else {
-      setScanDueDate(calculatedDueDate(lastPeriodDate));
+      setScanDueDate(calculatedDueDate(lastPeriodDate, cycleLengthDays));
       setEditing('scan');
     }
   };
@@ -178,6 +206,15 @@ function PregnancySetupForm({ latestPeriod }: { latestPeriod: string | null }) {
               age: formatAge(t, age),
             })}
         </Text>
+        {!error && !scanDueDate && adjustment !== 0 ? (
+          <Text style={styles.note}>
+            {t(adjustment > 0 ? 'pregnancy.setup_adjusted_later' : 'pregnancy.setup_adjusted_earlier', {
+              length: cycleLengthDays,
+              count: Math.abs(adjustment),
+            })}
+          </Text>
+        ) : null}
+        <HowLink section="pregnancy" />
         {failed ? <Text style={styles.error}>{t('pregnancy.error_save')}</Text> : null}
 
         <Button
@@ -217,5 +254,11 @@ const makeStyles = (colors: ThemeColors) =>
       fontSize: Typography.sizes.sm,
       color: colors.danger,
       textAlign: 'center',
+    },
+    note: {
+      fontSize: Typography.sizes.sm,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      lineHeight: 20,
     },
   });

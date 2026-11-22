@@ -25,6 +25,7 @@ import { useSettings } from '@/hooks/use-settings';
 import { useToday } from '@/hooks/use-today';
 import { useTheme } from '@/providers/theme-provider';
 import { formatDisplayDate, parseISODate } from '@/utils/date';
+import { HowLink } from '@/components/ui/how-link';
 
 export default function FastsScreen() {
   const router = useRouter();
@@ -64,6 +65,7 @@ export default function FastsScreen() {
         <Text style={styles.body}>{t('islamic.fasts_intro')}</Text>
         <Text style={styles.note}>{t('islamic.fasts_calendar_note')}</Text>
         <Text style={styles.note}>{t('islamic.fasts_excluded_note')}</Text>
+        <HowLink section="ramadan" align="left" />
 
         {rows.length === 0 ? <Text style={styles.body}>{t('islamic.fasts_empty')}</Text> : null}
 

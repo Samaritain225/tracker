@@ -39,7 +39,7 @@ const SUMMARY_SYMPTOMS = 3;
  * on how many days of that week each symptom was logged.
  */
 export function summarizeWeeks(
-  pregnancy: Pick<PregnancyLike, 'lastPeriodDate' | 'scanDueDate' | 'endedOn'>,
+  pregnancy: Pick<PregnancyLike, 'lastPeriodDate' | 'scanDueDate' | 'cycleLengthDays' | 'endedOn'>,
   logs: LogLike[],
 ): WeekSummary[] {
   const start = gestationStartDate(pregnancy);
@@ -71,7 +71,7 @@ export function summarizeWeeks(
 }
 
 export function buildJourney<V extends VisitLike, M extends MomentLike>(
-  pregnancy: Pick<PregnancyLike, 'lastPeriodDate' | 'scanDueDate' | 'endedOn' | 'outcome'>,
+  pregnancy: Pick<PregnancyLike, 'lastPeriodDate' | 'scanDueDate' | 'cycleLengthDays' | 'endedOn' | 'outcome'>,
   visits: V[],
   moments: M[],
   logs: LogLike[],
@@ -139,7 +139,7 @@ export type SymptomGrid = {
  * zeros, so gaps are visible rather than closed up.
  */
 export function symptomGridByWeek(
-  pregnancy: Pick<PregnancyLike, 'lastPeriodDate' | 'scanDueDate' | 'endedOn'>,
+  pregnancy: Pick<PregnancyLike, 'lastPeriodDate' | 'scanDueDate' | 'cycleLengthDays' | 'endedOn'>,
   logs: LogLike[],
   upToWeek: number,
   maxRows: number = 8,

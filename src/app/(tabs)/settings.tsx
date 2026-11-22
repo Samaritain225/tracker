@@ -397,6 +397,18 @@ export default function SettingsScreen() {
         />
       </Card>
 
+      {/* How it works */}
+      <Card style={styles.buttonStack}>
+        <Button
+          label={t('how.title')}
+          icon="help-circle-outline"
+          onPress={() => router.push('/how-it-works')}
+          variant="secondary"
+          fullWidth
+        />
+        <Text style={styles.sliderNote}>{t('how.settings_note')}</Text>
+      </Card>
+
       {/* Symptoms */}
       <Card style={styles.buttonStack}>
         <Text style={styles.sectionLabel}>{t('symptoms.section')}</Text>

@@ -201,7 +201,8 @@
     "symptom_back_pain": "Mal de dos",
     "symptom_heartburn": "Brûlures d'estomac",
     "symptom_swelling": "Gonflements",
-    "symptom_baby_moved": "Bébé a bougé"
+    "symptom_baby_moved": "Bébé a bougé",
+    "after_period_end": "Jour {{day}} depuis les règles commencées le {{date}}, notées comme terminées le {{end}}. Activez « Les règles sont terminées » si elles se sont terminées ce jour-là."
   },
   "notifications": {
     "period_title": "Rappel de règles",
@@ -308,7 +309,11 @@
     "weeks_count_one": "{{count}} semaine",
     "weeks_count_other": "{{count}} semaines",
     "days_count_one": "{{count}} jour",
-    "days_count_other": "{{count}} jours"
+    "days_count_other": "{{count}} jours",
+    "setup_adjusted_later_one": "Ajusté pour vos cycles habituels de {{length}} jours : 1 jour plus tard que le calcul standard. Une date d'échographie le remplace.",
+    "setup_adjusted_later_other": "Ajusté pour vos cycles habituels de {{length}} jours : {{count}} jours plus tard que le calcul standard. Une date d'échographie le remplace.",
+    "setup_adjusted_earlier_one": "Ajusté pour vos cycles habituels de {{length}} jours : 1 jour plus tôt que le calcul standard. Une date d'échographie le remplace.",
+    "setup_adjusted_earlier_other": "Ajusté pour vos cycles habituels de {{length}} jours : {{count}} jours plus tôt que le calcul standard. Une date d'échographie le remplace."
   },
   "journey": {
     "title": "Votre parcours",
@@ -492,5 +497,46 @@
     "weight": "Poids",
     "blood_pressure": "Tension",
     "kg": "{{value}} kg"
+  },
+  "how": {
+    "title": "Comment Lumi calcule",
+    "intro": "Chaque date et chaque chiffre de Lumi vient de ce que vous notez, avec quelques règles simples. Les voici, avec vos propres chiffres.",
+    "link": "Comment Lumi calcule-t-il cela ? ›",
+    "settings_note": "Les règles derrière chaque date et chaque chiffre, avec vos propres chiffres.",
+    "label_yours": "Pour vous",
+    "title_cycle": "Votre cycle et vos prochaines règles",
+    "title_late": "Quand vos règles sont en retard",
+    "title_ovulation": "Ovulation et jours fertiles",
+    "title_period": "La durée de vos règles",
+    "title_pregnancy": "Semaines de grossesse et terme",
+    "title_patterns": "Tendances",
+    "title_ramadan": "Jeûnes du Ramadan",
+    "cycle_rule": "Un cycle va du premier jour de vos règles au premier jour des suivantes. Lumi regarde vos {{window}} derniers cycles et prend la valeur du milieu, pour qu'un mois inhabituel ne fausse pas tout. Les écarts de moins de {{min}} jours ou de plus de {{max}} viennent en général d'une erreur de saisie et sont écartés, tout comme un écart qui contient une grossesse. Tant qu'il n'y a pas assez de données, Lumi utilise la durée de cycle des Réglages ({{fallback}} jours). Vos prochaines règles sont attendues un cycle habituel après le début des dernières.",
+    "cycle_yours_one": "Votre dernier cycle a duré {{gaps}} jours : votre cycle habituel est donc de {{length}} jours. Vos dernières règles ont commencé le {{date1}}, les prochaines sont attendues vers le {{date2}}.",
+    "cycle_yours_other": "Vos {{count}} derniers cycles ont duré {{gaps}} jours : votre cycle habituel est donc de {{length}} jours. Vos dernières règles ont commencé le {{date1}}, les prochaines sont attendues vers le {{date2}}.",
+    "cycle_yours_fallback": "Il n'y a pas encore assez de cycles notés, Lumi utilise donc {{length}} jours. Vos dernières règles ont commencé le {{date1}}, les prochaines sont attendues vers le {{date2}}.",
+    "cycle_yours_none": "Notez vos premières règles et Lumi commencera à compter. En attendant, il suppose des cycles de {{length}} jours.",
+    "cycle_limit": "C'est une estimation : des règles qui arrivent quelques jours plus tôt ou plus tard, c'est normal.",
+    "cycle_limit_variance_one": "Vos cycles varient en général d'environ 1 jour : un jour d'avance ou de retard est normal pour vous.",
+    "cycle_limit_variance_other": "Vos cycles varient en général d'environ {{count}} jours : autant de jours d'avance ou de retard est normal pour vous.",
+    "late_rule": "Vos règles sont en retard dès que le jour attendu est passé. Après {{count}} jours de retard, Lumi suggère un test de grossesse et vous demande si vous êtes enceinte. Si vous répondez non, il ne redemande pas pour ces règles-là.",
+    "late_yours_one": "Vos règles étaient attendues le {{date1}} : 1 jour de retard aujourd'hui.",
+    "late_yours_other": "Vos règles étaient attendues le {{date1}} : {{count}} jours de retard aujourd'hui.",
+    "late_limit": "Le stress, une maladie, un voyage ou un changement de poids peuvent retarder les règles.",
+    "ovulation_rule": "La deuxième partie du cycle, de l'ovulation aux règles suivantes, dure environ {{offset}} jours chez la plupart des personnes, quelle que soit la durée du cycle. Lumi place donc l'ovulation {{offset}} jours avant vos prochaines règles attendues. Les jours fertiles affichés vont de {{before}} jours avant l'ovulation à {{after}} jours après.",
+    "ovulation_yours": "Avec un cycle de {{length}} jours, l'ovulation est attendue vers le {{date1}}, et les jours fertiles vont du {{date2}} au {{date3}}.",
+    "ovulation_limit": "C'est une estimation au calendrier, pas une mesure : l'ovulation peut varier d'un cycle à l'autre. Ne comptez pas uniquement sur elle pour éviter ou prévoir une grossesse.",
+    "period_rule": "Des règles durent jusqu'au dernier jour que vous avez confirmé. Sans cela, Lumi utilise les jours où vous avez noté des saignements, et sans ceux-ci, votre durée habituelle des Réglages ({{days}} jours). Les règles encore en cours ne comptent pas dans la moyenne.",
+    "period_yours_one": "Vos règles durent 1 jour en moyenne.",
+    "period_yours_other": "Vos règles durent {{count}} jours en moyenne.",
+    "pregnancy_rule": "Comme les médecins, Lumi compte les semaines de grossesse à partir du premier jour de vos dernières règles, environ deux semaines avant la conception. Le terme est {{days}} jours après ce jour. Ces {{days}} jours supposent un cycle de {{standard}} jours : pour un cycle habituel entre {{min}} et {{max}} jours, Lumi décale le terme de la différence, soit une semaine plus tard pour des cycles de 35 jours. Un terme donné par une échographie remplace tout cela.",
+    "pregnancy_yours": "Vos dernières règles ont commencé le {{date1}} : {{weeks}} semaines + {{days}} jours aujourd'hui, terme le {{date2}}.",
+    "pregnancy_yours_adjusted": "Vos dernières règles ont commencé le {{date1}}. Ajusté pour vos cycles de {{length}} jours : {{weeks}} semaines + {{days}} jours aujourd'hui, terme le {{date2}}.",
+    "pregnancy_yours_scan": "Daté par votre échographie : {{weeks}} semaines + {{days}} jours aujourd'hui, terme le {{date1}}.",
+    "pregnancy_limit": "Peu de bébés naissent le jour même du terme ; la plupart arrivent dans les deux semaines avant ou après.",
+    "patterns_rule": "Lumi regarde les cycles terminés et range chaque jour noté dans une partie : pendant vos règles, les {{before}} jours avant les suivantes, ou le reste. Un symptôme ou une humeur devient une tendance dès qu'il est noté au moins {{days}} jours, sur au moins {{cycles}} cycles, avec {{share}} % ou plus de ces jours dans la même partie.",
+    "patterns_limit": "Les tendances décrivent ce que vous avez noté. Ce n'est pas un diagnostic, et plus vous notez, plus elles sont fiables.",
+    "ramadan_rule": "Les dates du Ramadan viennent du calendrier Umm al-Qura. Pour chaque Ramadan, Lumi propose les jours où vous avez noté des saignements, sans compter les jours de grossesse ni ceux après une perte.",
+    "ramadan_limit": "L'observation locale de la lune peut différer d'un jour ou deux, et vous connaissez vos jours mieux que personne : vous pouvez modifier le nombre."
   }
 }

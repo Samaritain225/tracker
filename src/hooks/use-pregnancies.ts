@@ -21,6 +21,8 @@ import { isQueryLoading } from '@/utils/query';
 type StartInput = {
   lastPeriodDate: string;
   scanDueDate: string | null;
+  /** Her usual cycle length now, kept with the pregnancy for its dates. */
+  cycleLengthDays: number | null;
   /** Today, for dating the "Positive test" moment. */
   todayISO: string;
 };
@@ -35,7 +37,7 @@ type UsePregnanciesReturn = {
    * due date is also recorded as a moment on the Journey. */
   updatePregnancyDates: (
     id: string,
-    dates: { lastPeriodDate: string; scanDueDate: string | null },
+    dates: { lastPeriodDate: string; scanDueDate: string | null; cycleLengthDays: number | null },
     todayISO: string,
   ) => Promise<boolean>;
   endPregnancy: (
@@ -64,7 +66,11 @@ export function usePregnancies(): UsePregnanciesReturn {
       return db.transaction((tx) => {
         const [created] = tx
           .insert(pregnancies)
-          .values({ lastPeriodDate: input.lastPeriodDate, scanDueDate: input.scanDueDate })
+          .values({
+            lastPeriodDate: input.lastPeriodDate,
+            scanDueDate: input.scanDueDate,
+            cycleLengthDays: input.cycleLengthDays,
+          })
           .returning({ id: pregnancies.id })
           .all();
         tx.insert(pregnancyMoments)
@@ -82,7 +88,7 @@ export function usePregnancies(): UsePregnanciesReturn {
   const updatePregnancyDates = useCallback(
     async (
       id: string,
-      dates: { lastPeriodDate: string; scanDueDate: string | null },
+      dates: { lastPeriodDate: string; scanDueDate: string | null; cycleLengthDays: number | null },
       todayISO: string,
     ): Promise<boolean> => {
       try {

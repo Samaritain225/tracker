@@ -295,6 +295,7 @@ describe('version 2: pregnancies', () => {
     babyName: 'Awa',
     breastfeeding: 1,
     journeyChoice: null,
+    cycleLengthDays: 35,
     createdAt: 6,
   };
   const visitRow: PregnancyVisit = {
@@ -339,6 +340,7 @@ describe('version 2: pregnancies', () => {
         babyName: 'Awa',
         breastfeeding: true,
         journeyChoice: null,
+        cycleLengthDays: 35,
         startedAt: 5,
         createdAt: 6,
       },
@@ -508,5 +510,21 @@ describe('custom symptoms in backups', () => {
     const bad = withCustom() as Record<string, unknown>;
     bad.customSymptoms = [{ id: 'c2', label: '  ' }];
     expect(parseBackup(asFile(bad))).toEqual({ ok: false, error: 'invalid' });
+  });
+});
+
+describe('cycle length on pregnancies in backups', () => {
+  it('reads a missing or out-of-range cycle length as none', () => {
+    const file = JSON.parse(serializeBackup(buildBackup([], [], null, NOW, {
+      pregnancies: [{ id: 'g', lastPeriodDate: '2026-01-01', scanDueDate: null, startedAt: 1, endedOn: null, outcome: null, babyName: null, breastfeeding: null, journeyChoice: null, cycleLengthDays: 35, createdAt: 1 }],
+      visits: [],
+      moments: [],
+    })));
+    delete file.pregnancies[0].cycleLengthDays;
+    const older = parseBackup(asFile(file));
+    expect(older.ok && older.backup.pregnancies[0].cycleLengthDays).toBeNull();
+    file.pregnancies[0].cycleLengthDays = 90;
+    const odd = parseBackup(asFile(file));
+    expect(odd.ok && odd.backup.pregnancies[0].cycleLengthDays).toBeNull();
   });
 });

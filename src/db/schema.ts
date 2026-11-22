@@ -93,6 +93,14 @@ export const pregnancies = sqliteTable('pregnancies', {
    * until asked; never asked after a birth.
    */
   journeyChoice: text('journey_choice'),
+  /**
+   * Her usual cycle length when the pregnancy was set up, used to shift
+   * the due date for cycles longer or shorter than 28 days. Stored, not
+   * recomputed, so cycles logged after the pregnancy never move its
+   * dates. Null for pregnancies set up before this existed, or when her
+   * cycles gave nothing reliable: no adjustment.
+   */
+  cycleLengthDays: integer('cycle_length_days'),
   createdAt: integer('created_at').$defaultFn(() => Date.now()),
 });
 

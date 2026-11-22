@@ -1,6 +1,6 @@
 /**
- * LoadingScreen — centred spinner with optional message.
- * Used during DB migration and font loading.
+ * LoadingScreen — centred spinner with optional message, for screens
+ * waiting on their own data. App launch uses LaunchSplash instead.
  */
 
 import React from 'react';
@@ -21,7 +21,6 @@ export function LoadingScreen({ message }: Props) {
   return (
     <View style={styles.container}>
       <ActivityIndicator size="large" color={colors.primary} />
-      <Text style={styles.appName}>Cycle Tracker</Text>
       {message ? <Text style={styles.message}>{message}</Text> : null}
     </View>
   );
@@ -35,11 +34,6 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.background,
     gap: Spacing.lg,
     padding: Spacing.xl,
-  },
-  appName: {
-    fontSize: Typography.sizes.lg,
-    fontWeight: Typography.weights.semibold,
-    color: colors.primary,
   },
   message: {
     fontSize: Typography.sizes.sm,

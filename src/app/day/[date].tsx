@@ -42,7 +42,7 @@ import { resolveMode } from '@/utils/pregnancy';
 import { IslamicCard } from '@/components/islamic/islamic-card';
 import { useIslamicStatus } from '@/hooks/use-islamic';
 import { daysBetween, formatDisplayDate, parseISODate } from '@/utils/date';
-import { findPeriodCovering } from '@/utils/cycle';
+import { findPeriodCovering, findPeriodEndedBefore } from '@/utils/cycle';
 import { useSettings } from '@/hooks/use-settings';
 import type { DailyLog, FlowLevel } from '@/db/schema';
 import { useCustomSymptoms } from '@/hooks/use-custom-symptoms';
@@ -97,6 +97,10 @@ export default function DayDetailsScreen() {
   const currentLog = logs.find((l) => l.date === date) ?? null;
   const periodOnDate = periods.find((p) => p.startDate === date) ?? null;
   const containingPeriod = findPeriodCovering(periods, date);
+  // A day shortly after a period's confirmed end: the end can be moved
+  // here, instead of offering a second start a few days after the first.
+  const endedBefore = !containingPeriod && !periodOnDate ? findPeriodEndedBefore(periods, date) : null;
+  const periodForDay = containingPeriod ?? endedBefore;
 
   // This day already belongs to a period without being its start, so
   // offering "period started" here would let the user log a second start
@@ -105,13 +109,15 @@ export default function DayDetailsScreen() {
   // context instead. (When the day *is* a start the two resolve to the
   // same record, so this stays null.)
   const partOfPeriod =
-    containingPeriod && !periodOnDate
+    periodForDay && !periodOnDate
       ? {
-          startDate: containingPeriod.startDate,
+          startDate: periodForDay.startDate,
           // 1-based, so the first day reads as "Day 1" — the same
           // convention as OngoingPeriod.dayOfPeriod.
           dayOfPeriod:
-            daysBetween(parseISODate(containingPeriod.startDate), parseISODate(date)) + 1,
+            daysBetween(parseISODate(periodForDay.startDate), parseISODate(date)) + 1,
+          // Set when this day is after the period's confirmed end.
+          endedOn: endedBefore?.endDate ?? null,
         }
       : null;
 
@@ -147,7 +153,7 @@ export default function DayDetailsScreen() {
       calendarType={(settings?.calendarType as 'gregorian' | 'hijri') ?? 'gregorian'}
       initialLog={currentLog}
       initialPeriodId={periodOnDate?.id ?? null}
-      containingPeriodId={containingPeriod?.id ?? null}
+      containingPeriodId={periodForDay?.id ?? null}
       partOfPeriod={partOfPeriod}
       initialIsPeriodEnd={containingPeriod?.endDate === date}
       saveError={periodError ?? logError}
@@ -176,7 +182,7 @@ type DayDetailsFormProps = {
   containingPeriodId: string | null;
   /** Set when this day sits inside a period without being its start.
    * Replaces the "period started" switch with context — see the shell. */
-  partOfPeriod: { startDate: string; dayOfPeriod: number } | null;
+  partOfPeriod: { startDate: string; dayOfPeriod: number; endedOn: string | null } | null;
   initialIsPeriodEnd: boolean;
   /** Whichever write last failed, as an `errors.*` translation key. */
   saveError: string | null;
@@ -391,14 +397,20 @@ function DayDetailsForm({
                 "period started" switch — see the shell for why. */}
             {partOfPeriod ? (
               <Text style={styles.contextLine}>
-                {t('day_details.part_of_period', {
-                  day: partOfPeriod.dayOfPeriod,
-                  date: formatDisplayDate(
-                    parseISODate(partOfPeriod.startDate),
-                    language,
-                    calendarType,
-                  ),
-                })}
+                {partOfPeriod.endedOn
+                  ? t('day_details.after_period_end', {
+                      day: partOfPeriod.dayOfPeriod,
+                      date: formatDisplayDate(parseISODate(partOfPeriod.startDate), language, calendarType),
+                      end: formatDisplayDate(parseISODate(partOfPeriod.endedOn), language, calendarType),
+                    })
+                  : t('day_details.part_of_period', {
+                      day: partOfPeriod.dayOfPeriod,
+                      date: formatDisplayDate(
+                        parseISODate(partOfPeriod.startDate),
+                        language,
+                        calendarType,
+                      ),
+                    })}
               </Text>
             ) : (
               <View style={styles.row}>

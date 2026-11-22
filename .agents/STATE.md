@@ -1,18 +1,19 @@
 # Where we are
 
-Eight stacked pull requests are open, each waiting on the user to merge in
-order. Each merge into `main` builds a production APK.
-
-- Stage 1, pull request 2: the August logic-audit fixes (`fix/logging-flow-audit`).
-- Stage 2, pull request 3: Expo SDK 55 to 58 and checks before every build (`chore/expo-sdk-58`).
-- Stage 3, pull request 4: foundations (`feat/foundations`).
-- Stage 4 part 1, pull request 5: pregnancy foundation (`feat/pregnancy-foundation`), including the approved design.
-- Stage 4 part 2, pull request 6: the Journey (`feat/pregnancy-journey`).
-- Stage 4 part 3, pull request 7: weekly content and pregnancy Insights (`feat/pregnancy-content`).
-- Stage 5, pull request 8: the Islamic option, Maliki school (`feat/islamic-option`), including its design.
-- Stage 6, pull request 9: custom symptoms, patterns and a summary for a doctor (`feat/extras`).
+All six stages are merged into `main` (2026-11-22). The stack was merged from
+the top down, so only the final merge into `main` started a production build:
+one EAS run, in progress at the time of writing. From now on work goes into
+`develop`, which is the default branch; merging `develop` into `main` is a release.
 
 ## Recently landed
+
+- Fertile days now run from 5 days before ovulation to 3 after (owner's choice, 2026-11-22), in `develop`.
+
+- "How Lumi works it out" screen (in `develop`): each rule in plain words with her own numbers, linked from Settings, Home, Insights, pregnancy setup and the fasts screen. Checked on the emulator in English.
+
+- Due dates adjust for her usual cycle length (in `develop`): stored on the pregnancy when it is set up (migration 0008), so existing pregnancies keep their dates until she saves "Edit dates". Tested by unit tests only; not yet run on the emulator.
+
+- Animated launch screen on `feat/splash-animation`, pull request into `develop`: the logo turns, breathes and fades into Home. Checked on the debug build in light, dark and with animations off. Not yet seen on a release build: the Mac's disk was too full to build one.
 
 - Stage 5: the Maliki Islamic option (counts, reference limits, Ramadan fasts to make up, sources), verified on the emulator on 2026-11-22.
 - Stage 6: custom symptoms (added from the day sheet, renamed or hidden under Settings > My symptoms), a Patterns card in Insights, and a one-page "Summary for a doctor" shared as a PDF through `expo-print`. Built on the builder's picks, as the owner asked, with no design conversation. Verified on the emulator on 2026-11-22 in English; the PDF was opened and read.
