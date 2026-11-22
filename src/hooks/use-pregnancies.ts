@@ -15,6 +15,7 @@ import { useCallback, useState } from 'react';
 import { db } from '@/db/client';
 import { pregnancies, pregnancyMoments, pregnancyVisits } from '@/db/schema';
 import type { Pregnancy, PregnancyOutcome } from '@/db/schema';
+import { deletePhoto } from '@/services/user-data';
 import { isQueryLoading } from '@/utils/query';
 
 type StartInput = {
@@ -44,6 +45,11 @@ type UsePregnanciesReturn = {
   /** Deletes a pregnancy started by mistake, with its visits and moments. */
   removePregnancy: (id: string) => Promise<boolean>;
   setBreastfeeding: (id: string, value: boolean) => Promise<boolean>;
+  /** After a loss: keep the Journey as it is. */
+  keepJourney: (id: string) => Promise<boolean>;
+  /** After a loss: delete the Journey's visits, moments and photos, but
+   * keep the pregnancy itself so the cycle maths still leaves it out. */
+  deleteJourney: (id: string) => Promise<boolean>;
 };
 
 export function usePregnancies(): UsePregnanciesReturn {
@@ -129,6 +135,11 @@ export function usePregnancies(): UsePregnanciesReturn {
   const removePregnancy = useCallback(async (id: string): Promise<boolean> => {
     try {
       setError(null);
+      const photos = db
+        .select({ name: pregnancyMoments.photoFileName })
+        .from(pregnancyMoments)
+        .where(eq(pregnancyMoments.pregnancyId, id))
+        .all();
       // Children first and explicitly: the schema declares ON DELETE
       // CASCADE, but SQLite only enforces it with foreign_keys switched
       // on, and expo-sqlite leaves it off.
@@ -137,6 +148,7 @@ export function usePregnancies(): UsePregnanciesReturn {
         tx.delete(pregnancyVisits).where(eq(pregnancyVisits.pregnancyId, id)).run();
         tx.delete(pregnancies).where(eq(pregnancies.id, id)).run();
       });
+      for (const { name } of photos) if (name) deletePhoto(name);
       return true;
     } catch (e) {
       console.error(e);
@@ -160,6 +172,40 @@ export function usePregnancies(): UsePregnanciesReturn {
     }
   }, []);
 
+  const keepJourney = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      setError(null);
+      await db.update(pregnancies).set({ journeyChoice: 'kept' }).where(eq(pregnancies.id, id));
+      return true;
+    } catch (e) {
+      console.error(e);
+      setError('save_failed');
+      return false;
+    }
+  }, []);
+
+  const deleteJourney = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      setError(null);
+      const photos = db
+        .select({ name: pregnancyMoments.photoFileName })
+        .from(pregnancyMoments)
+        .where(eq(pregnancyMoments.pregnancyId, id))
+        .all();
+      db.transaction((tx) => {
+        tx.delete(pregnancyMoments).where(eq(pregnancyMoments.pregnancyId, id)).run();
+        tx.delete(pregnancyVisits).where(eq(pregnancyVisits.pregnancyId, id)).run();
+        tx.update(pregnancies).set({ journeyChoice: 'deleted' }).where(eq(pregnancies.id, id)).run();
+      });
+      for (const { name } of photos) if (name) deletePhoto(name);
+      return true;
+    } catch (e) {
+      console.error(e);
+      setError('delete_failed');
+      return false;
+    }
+  }, []);
+
   return {
     pregnancies: data ?? [],
     isLoading: isQueryLoading(updatedAt, queryError),
@@ -169,5 +215,7 @@ export function usePregnancies(): UsePregnanciesReturn {
     endPregnancy,
     removePregnancy,
     setBreastfeeding,
+    keepJourney,
+    deleteJourney,
   };
 }

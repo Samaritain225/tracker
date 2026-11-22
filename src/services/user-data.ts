@@ -35,6 +35,32 @@ export function photoDirectory(): Directory {
   return new Directory(Paths.document, 'pregnancy-photos');
 }
 
+/**
+ * Copies a photo the user picked into the app's own photo folder under
+ * a fresh, plain file name, and returns that name. The original stays
+ * where it was; the app never writes to the gallery.
+ */
+export async function savePhoto(sourceUri: string): Promise<string> {
+  const dir = photoDirectory();
+  if (!dir.exists) dir.create({ intermediates: true });
+  const match = /\.(jpe?g|png|heic|webp)$/i.exec(sourceUri.split('?')[0]);
+  const extension = match ? match[1].toLowerCase() : 'jpg';
+  const name = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}.${extension}`;
+  await new File(sourceUri).copy(new File(dir, name));
+  return name;
+}
+
+/** Deletes a stored photo. A file already gone is not an error. */
+export function deletePhoto(name: string): void {
+  const file = new File(photoDirectory(), name);
+  if (file.exists) file.delete();
+}
+
+/** The address an <Image> can show a stored photo from. */
+export function photoUri(name: string): string {
+  return new File(photoDirectory(), name).uri;
+}
+
 export type ShareOutcome = 'shared' | 'unavailable';
 
 /**
