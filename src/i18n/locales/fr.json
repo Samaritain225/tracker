@@ -201,7 +201,8 @@
     "symptom_back_pain": "Mal de dos",
     "symptom_heartburn": "Brûlures d'estomac",
     "symptom_swelling": "Gonflements",
-    "symptom_baby_moved": "Bébé a bougé"
+    "symptom_baby_moved": "Bébé a bougé",
+    "after_period_end": "Jour {{day}} depuis les règles commencées le {{date}}, notées comme terminées le {{end}}. Activez « Les règles sont terminées » si elles se sont terminées ce jour-là."
   },
   "notifications": {
     "period_title": "Rappel de règles",

@@ -299,6 +299,29 @@ export function findPeriodCovering<T extends PeriodLike>(
 }
 
 /**
+ * The period a day just after its confirmed end could still belong to:
+ * it ended before this day, started fewer than MAX_INFERRED_PERIOD_DAYS
+ * days before it, and no other period has started since.
+ *
+ * Exists for the day sheet. A confirmed end stops findPeriodCovering
+ * from claiming later days, so a period marked as ending on its first
+ * day left no way to move the end later: the days after it offered only
+ * "period started", which would log a second start a few days after
+ * the first.
+ */
+export function findPeriodEndedBefore<T extends PeriodLike>(list: T[], date: string): T | null {
+  let best: T | null = null;
+  for (const p of list) {
+    if (!p.endDate || p.endDate >= date || p.startDate >= date) continue;
+    if (daysBetween(parseISODate(p.startDate), parseISODate(date)) >= MAX_INFERRED_PERIOD_DAYS) continue;
+    if (!best || p.startDate > best.startDate) best = p;
+  }
+  if (!best) return null;
+  const startedSince = list.some((q) => q.startDate > best!.startDate && q.startDate <= date);
+  return startedSince ? null : best;
+}
+
+/**
  * Average period length across logged periods, as the single source of
  * truth for the Insights figure. Uses the same resolution ladder as the
  * calendar, so confirming an end date actually moves the number the user
