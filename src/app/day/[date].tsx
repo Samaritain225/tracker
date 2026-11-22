@@ -39,22 +39,22 @@ import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { usePeriods } from '@/hooks/use-periods';
 import { usePregnancies } from '@/hooks/use-pregnancies';
 import { resolveMode } from '@/utils/pregnancy';
+import { IslamicCard } from '@/components/islamic/islamic-card';
+import { useIslamicStatus } from '@/hooks/use-islamic';
 import { daysBetween, formatDisplayDate, parseISODate } from '@/utils/date';
 import { findPeriodCovering } from '@/utils/cycle';
 import { useSettings } from '@/hooks/use-settings';
 import type { DailyLog, FlowLevel } from '@/db/schema';
-
-const SYMPTOMS = ['cramps', 'headache', 'bloating', 'acne', 'fatigue'];
-const PREGNANCY_SYMPTOMS = [
-  'nausea',
-  'fatigue',
-  'back_pain',
-  'heartburn',
-  'swelling',
-  'headache',
-  'cramps',
-  'baby_moved',
-];
+import { useCustomSymptoms } from '@/hooks/use-custom-symptoms';
+import {
+  CYCLE_SYMPTOMS,
+  MOODS,
+  PREGNANCY_SYMPTOMS,
+  cleanLabel,
+  customKey,
+  CUSTOM_LABEL_MAX,
+  isDuplicateLabel,
+} from '@/utils/symptoms';
 
 /**
  * What kind of day this is, which decides what the sheet offers:
@@ -67,7 +67,6 @@ const PREGNANCY_SYMPTOMS = [
  *    has come back", the one deliberate way back to cycle tracking.
  */
 type DayKind = 'cycle' | 'pregnancy' | 'recovery';
-const MOODS = ['happy', 'sensitive', 'sad', 'anxious'];
 
 export default function DayDetailsScreen() {
   const { date, periodReturn } = useLocalSearchParams<{ date: string; periodReturn?: string }>();
@@ -123,6 +122,9 @@ export default function DayDetailsScreen() {
   const inRecovery =
     mode.kind === 'recovery' && mode.pregnancy.endedOn !== null && date > mode.pregnancy.endedOn;
   const dayKind: DayKind = inPregnancy ? 'pregnancy' : inRecovery ? 'recovery' : 'cycle';
+  const islamicMode = dayKind === 'pregnancy' ? 'pregnant' : dayKind === 'recovery' ? 'recovery' : 'cycle';
+  const islamicOutcome =
+    dayKind === 'recovery' && mode.kind === 'recovery' ? mode.outcome : undefined;
 
   return (
     <DayDetailsForm
@@ -130,6 +132,17 @@ export default function DayDetailsScreen() {
       date={date}
       dayKind={dayKind}
       allowPeriodReturn={dayKind === 'recovery' && periodReturn === '1'}
+      islamic={
+        <DayIslamicLine
+          date={date}
+          mode={islamicMode}
+          outcome={islamicOutcome}
+          periods={periods}
+          logs={logs}
+          pregnancies={pregnancies}
+          settings={settings}
+        />
+      }
       language={(settings?.language as 'en' | 'fr') ?? 'fr'}
       calendarType={(settings?.calendarType as 'gregorian' | 'hijri') ?? 'gregorian'}
       initialLog={currentLog}
@@ -148,6 +161,8 @@ export default function DayDetailsScreen() {
 
 type DayDetailsFormProps = {
   date: string;
+  /** The Islamic option's reference line for this day, or nothing. */
+  islamic: React.ReactNode;
   dayKind: DayKind;
   /** Opened from "My period has come back": offer "period started",
    * switched on, even though this is a recovery day. */
@@ -176,6 +191,7 @@ type DayDetailsFormProps = {
 
 function DayDetailsForm({
   date,
+  islamic,
   dayKind,
   allowPeriodReturn,
   language,
@@ -199,7 +215,8 @@ function DayDetailsForm({
 
   const [isPeriodStart, setIsPeriodStart] = useState(!!initialPeriodId || allowPeriodReturn);
   const showPeriodSwitches = dayKind === 'cycle' || allowPeriodReturn;
-  const symptomList = dayKind === 'pregnancy' ? PREGNANCY_SYMPTOMS : SYMPTOMS;
+  const builtInSymptoms = dayKind === 'pregnancy' ? PREGNANCY_SYMPTOMS : CYCLE_SYMPTOMS;
+  const { visible: visibleCustom, customSymptoms: allCustom, labelOf, addSymptom } = useCustomSymptoms();
   const [isPeriodEnd, setIsPeriodEnd] = useState(initialIsPeriodEnd);
   const [flow, setFlow] = useState<FlowLevel | null>(
     (initialLog?.flow as FlowLevel) ?? null,
@@ -217,6 +234,53 @@ function DayDetailsForm({
         : [...prev, symptom],
     );
   }, []);
+
+  // Built-in chips, then her own: the visible ones, plus any hidden one
+  // already ticked on this day so she can still untick it.
+  const symptomList = React.useMemo(() => {
+    const custom = allCustom
+      .filter((c) => c.hidden === 0 || symptoms.includes(customKey(c.id)))
+      .map((c) => customKey(c.id));
+    return [...builtInSymptoms, ...custom];
+  }, [builtInSymptoms, allCustom, symptoms]);
+
+  const [adding, setAdding] = useState(false);
+  const [newSymptom, setNewSymptom] = useState('');
+  const [addError, setAddError] = useState<string | null>(null);
+
+  const handleAddSymptom = useCallback(async () => {
+    const label = cleanLabel(newSymptom);
+    if (!label) return;
+    const taken = [
+      ...PREGNANCY_SYMPTOMS.map(labelOf),
+      ...CYCLE_SYMPTOMS.map(labelOf),
+      ...allCustom.map((c) => c.label),
+    ];
+    if (isDuplicateLabel(label, taken)) {
+      // Already exists: tick it rather than make a second one.
+      const existing = allCustom.find((c) => isDuplicateLabel(label, [c.label]));
+      const builtIn = [...builtInSymptoms].find((k) => isDuplicateLabel(label, [labelOf(k)]));
+      const key = existing ? customKey(existing.id) : builtIn;
+      if (key) {
+        setSymptoms((prev) => (prev.includes(key) ? prev : [...prev, key]));
+        setNewSymptom('');
+        setAdding(false);
+        setAddError(null);
+        return;
+      }
+      setAddError(t('symptoms.duplicate'));
+      return;
+    }
+    const id = await addSymptom(label);
+    if (!id) {
+      setAddError(t('errors.save_failed'));
+      return;
+    }
+    setSymptoms((prev) => [...prev, customKey(id)]);
+    setNewSymptom('');
+    setAdding(false);
+    setAddError(null);
+  }, [newSymptom, labelOf, allCustom, builtInSymptoms, addSymptom, t]);
 
   const handleFlowChange = useCallback((val: string) => {
     // Tapping the already-active option deselects it, since
@@ -377,6 +441,7 @@ function DayDetailsForm({
             {dayKind === 'pregnancy' ? (
               <Text style={styles.hint}>{t('day_details.bleeding_hint')}</Text>
             ) : null}
+            {islamic}
             <SegmentedControl
               options={[
                 { label: t('day_details.flow_spotting'), value: 'spotting' },
@@ -403,12 +468,55 @@ function DayDetailsForm({
                     style={[styles.chip, active && styles.chipActive]}
                   >
                     <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                      {t(`day_details.symptom_${sym}`)}
+                      {labelOf(sym)}
                     </Text>
                   </Pressable>
                 );
               })}
+              {!adding && (
+                <Pressable
+                  onPress={() => setAdding(true)}
+                  style={[styles.chip, styles.chipAdd]}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.chipText}>{t('symptoms.add_own')}</Text>
+                </Pressable>
+              )}
             </View>
+            {adding && (
+              <View style={styles.addRow}>
+                <TextInput
+                  style={styles.addInput}
+                  value={newSymptom}
+                  onChangeText={(v) => {
+                    setNewSymptom(v);
+                    setAddError(null);
+                  }}
+                  placeholder={t('symptoms.add_placeholder')}
+                  placeholderTextColor={colors.textMuted}
+                  maxLength={CUSTOM_LABEL_MAX}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleAddSymptom}
+                />
+                <Pressable onPress={handleAddSymptom} style={styles.addButton} accessibilityRole="button">
+                  <Text style={styles.addButtonText}>{t('symptoms.add')}</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    setAdding(false);
+                    setNewSymptom('');
+                    setAddError(null);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('common.cancel')}
+                  hitSlop={8}
+                >
+                  <Icon name="close" size={20} color={colors.textSecondary} />
+                </Pressable>
+              </View>
+            )}
+            {addError && <Text style={styles.addError}>{addError}</Text>}
           </Card>
         </Animated.View>
 
@@ -547,6 +655,42 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     borderColor: 'transparent',
   },
+  chipAdd: {
+    backgroundColor: 'transparent',
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+  },
+  addRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  addInput: {
+    flex: 1,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: Radii.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    fontSize: Typography.sizes.md,
+    color: colors.textPrimary,
+  },
+  addButton: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radii.full,
+    backgroundColor: colors.primary,
+  },
+  addButtonText: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold,
+    color: colors.primaryText,
+  },
+  addError: {
+    marginTop: Spacing.xs,
+    fontSize: Typography.sizes.sm,
+    color: colors.danger,
+  },
   chipActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
@@ -573,3 +717,29 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: Spacing.sm,
   },
 });
+
+/**
+ * The Maliki reference for this day, from what is already saved. Kept
+ * outside the form so the form's state never depends on it.
+ */
+function DayIslamicLine(props: {
+  date: string;
+  mode: 'cycle' | 'pregnant' | 'recovery';
+  outcome?: 'birth' | 'loss';
+  periods: Parameters<typeof useIslamicStatus>[0]['periods'];
+  logs: Parameters<typeof useIslamicStatus>[0]['logs'];
+  pregnancies: Parameters<typeof useIslamicStatus>[0]['pregnancies'];
+  settings: Parameters<typeof useIslamicStatus>[0]['settings'];
+}) {
+  const { rules, status } = useIslamicStatus({
+    settings: props.settings,
+    periods: props.periods,
+    logs: props.logs,
+    pregnancies: props.pregnancies,
+    mode: props.mode,
+    recoveryOutcome: props.outcome,
+    dateISO: props.date,
+  });
+  if (!rules || status.kind === 'none') return null;
+  return <IslamicCard status={status} rules={rules} compact />;
+}

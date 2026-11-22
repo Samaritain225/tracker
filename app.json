@@ -61,7 +61,15 @@
       "expo-font",
       "expo-image",
       "expo-status-bar",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": false,
+          "microphonePermission": false,
+          "photosPermission": "Choose photos to add to your pregnancy Journey."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

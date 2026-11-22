@@ -5,7 +5,7 @@
 
 import * as Notifications from 'expo-notifications';
 
-import { PERIOD_REMINDER_COUNT } from '@/utils/reminders';
+import { PERIOD_REMINDER_COUNT, VISIT_REMINDER_COUNT } from '@/utils/reminders';
 
 // Notification identifier for the daily check-in.
 const DAILY_LOG_ID = 'daily-log-reminder';
@@ -69,6 +69,36 @@ export async function schedulePeriodReminders(
   }
 }
 
+function visitReminderId(index: number): string {
+  return `visit-reminder-${index}`;
+}
+
+/**
+ * Replaces every scheduled visit reminder with one per entry, each with
+ * its own text (it names what kind of visit is coming).
+ */
+export async function scheduleVisitReminders(
+  reminders: { remindAt: Date; title: string; body: string }[],
+): Promise<void> {
+  await cancelVisitReminders();
+  for (let i = 0; i < reminders.length; i++) {
+    await Notifications.scheduleNotificationAsync({
+      identifier: visitReminderId(i),
+      content: { title: reminders[i].title, body: reminders[i].body, sound: true },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: reminders[i].remindAt,
+      },
+    });
+  }
+}
+
+async function cancelVisitReminders(): Promise<void> {
+  for (let i = 0; i < VISIT_REMINDER_COUNT; i++) {
+    await cancelNotification(visitReminderId(i));
+  }
+}
+
 async function cancelPeriodReminders(): Promise<void> {
   await cancelNotification(LEGACY_PERIOD_REMINDER_ID);
   for (let i = 0; i < PERIOD_REMINDER_COUNT; i++) {
@@ -120,6 +150,7 @@ async function cancelNotification(identifier: string): Promise<void> {
  */
 export async function cancelAllReminders(): Promise<void> {
   await cancelPeriodReminders();
+  await cancelVisitReminders();
   await cancelNotification(DAILY_LOG_ID);
 }
 

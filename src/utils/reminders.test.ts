@@ -2,7 +2,7 @@
  * Tests for period reminder scheduling.
  */
 
-import { computePeriodReminderDates } from './reminders';
+import { computePeriodReminderDates, computeVisitReminderDates } from './reminders';
 
 /** Local-time date at a given hour, matching how reminders are built. */
 function at(iso: string, hour: number): Date {
@@ -49,5 +49,30 @@ describe('computePeriodReminderDates', () => {
   it('works through starts given out of order', () => {
     const dates = computePeriodReminderDates([...starts].reverse(), at('2026-02-10', 12));
     expect(dates[0]).toEqual(at('2026-02-27', 9));
+  });
+});
+
+describe('computeVisitReminderDates', () => {
+  it('reminds at 09:00 the day before each upcoming visit, soonest first', () => {
+    const reminders = computeVisitReminderDates(
+      ['2026-12-10', '2026-11-26', '2026-12-01'],
+      at('2026-11-22', 12),
+    );
+    expect(reminders).toEqual([
+      { visitDate: '2026-11-26', remindAt: at('2026-11-25', 9) },
+      { visitDate: '2026-12-01', remindAt: at('2026-11-30', 9) },
+      { visitDate: '2026-12-10', remindAt: at('2026-12-09', 9) },
+    ]);
+  });
+
+  it('skips a visit whose reminder time has passed, and past visits', () => {
+    // Visit tomorrow, but it is already past 09:00 today.
+    const reminders = computeVisitReminderDates(['2026-11-23', '2026-11-01'], at('2026-11-22', 10));
+    expect(reminders).toEqual([]);
+  });
+
+  it('keeps only as many as asked for', () => {
+    const dates = ['2026-12-01', '2026-12-02', '2026-12-03'];
+    expect(computeVisitReminderDates(dates, at('2026-11-22', 12), 2)).toHaveLength(2);
   });
 });

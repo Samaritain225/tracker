@@ -24,6 +24,12 @@ import { useCycleCalc } from '@/hooks/use-cycle-calc';
 import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { usePeriods } from '@/hooks/use-periods';
 import { usePregnancies } from '@/hooks/use-pregnancies';
+import { usePregnancyVisits } from '@/hooks/use-pregnancy-visits';
+import { useIslamicStatus } from '@/hooks/use-islamic';
+import { useRamadanFasts } from '@/hooks/use-ramadan-fasts';
+import { IslamicCard } from '@/components/islamic/islamic-card';
+import { Card } from '@/components/ui/card';
+import { DEFAULT_PERIOD_DURATION_DAYS } from '@/constants/cycle';
 import { useSettings } from '@/hooks/use-settings';
 import { useToday } from '@/hooks/use-today';
 import { addDays, parseISODate, toISODate } from '@/utils/date';
@@ -36,6 +42,7 @@ export default function HomeScreen() {
   const { settings, dismissPregnancyPrompt } = useSettings();
   const { logs } = useDailyLogs();
   const { pregnancies, setBreastfeeding } = usePregnancies();
+  const { visits } = usePregnancyVisits();
   const { colors } = useTheme();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const todayISO = useToday();
@@ -44,6 +51,27 @@ export default function HomeScreen() {
   // screen — see providers/reminders-provider.tsx.
   const cycleInfo = useCycleCalc(periods, logs, settings, todayISO, pregnancies);
   const mode = cycleInfo.mode;
+  const recoveryOutcome = mode.kind === 'recovery' ? mode.outcome : undefined;
+  const islamic = useIslamicStatus({
+    settings,
+    periods,
+    logs,
+    pregnancies,
+    mode: mode.kind,
+    recoveryOutcome,
+    dateISO: todayISO,
+  });
+  const fasts = useRamadanFasts({
+    periods,
+    logs,
+    pregnancies,
+    defaultDurationDays: settings?.periodDurationDays ?? DEFAULT_PERIOD_DURATION_DAYS,
+    todayISO,
+  });
+  // Nothing religious after a loss, not even the fasts summary; the
+  // fasts screen stays reachable from Settings.
+  const showFastsCard =
+    islamic.rules !== null && fasts.outstanding > 0 && recoveryOutcome !== 'loss';
 
   const now = parseISODate(todayISO);
   const calendarType = settings?.calendarType as 'gregorian' | 'hijri' ?? 'gregorian';
@@ -106,7 +134,11 @@ export default function HomeScreen() {
             language={language}
             calendarType={calendarType}
             showStarSign={settings?.showStarSign !== 0}
+            nextVisit={
+              visits.find((v) => v.pregnancyId === mode.pregnancy.id && v.date >= todayISO) ?? null
+            }
             onLogToday={() => handleDayPress(todayISO)}
+            onOpenVisit={(v) => router.push(`/pregnancy/visit?id=${v.id}`)}
           />
         </Animated.View>
       ) : mode.kind === 'recovery' ? (
@@ -118,6 +150,11 @@ export default function HomeScreen() {
             onSetBreastfeeding={(value) => setBreastfeeding(mode.pregnancy.id, value)}
             onPeriodBack={() => router.push(`/day/${todayISO}?periodReturn=1`)}
           />
+          {islamic.rules ? (
+            <View style={{ marginTop: Spacing.md }}>
+              <IslamicCard status={islamic.status} rules={islamic.rules} />
+            </View>
+          ) : null}
         </Animated.View>
       ) : (
         <>
@@ -133,12 +170,26 @@ export default function HomeScreen() {
             </Animated.View>
           )}
 
+          {islamic.rules ? (
+            <Animated.View entering={FadeInDown.duration(600).delay(250).springify()}>
+              <IslamicCard status={islamic.status} rules={islamic.rules} />
+            </Animated.View>
+          ) : null}
+
           {/* Metric cards */}
           <Animated.View entering={FadeInDown.duration(600).delay(300).springify()}>
             <CycleSummary cycleInfo={cycleInfo} />
           </Animated.View>
         </>
       )}
+
+      {showFastsCard ? (
+        <Card onPress={() => router.push('/islamic/fasts')}>
+          <Text style={styles.fastsText}>
+            🌙 {t('islamic.fasts_card', { count: fasts.outstanding })} ›
+          </Text>
+        </Card>
+      ) : null}
 
       {/* Calendar */}
       <Animated.View entering={FadeInDown.duration(600).delay(400).springify()}>
@@ -183,6 +234,11 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   title: {
     fontSize: Typography.sizes.xxl,
     fontWeight: Typography.weights.bold,
+    color: colors.textPrimary,
+  },
+  fastsText: {
+    fontSize: Typography.sizes.md,
+    fontWeight: Typography.weights.semibold,
     color: colors.textPrimary,
   },
   subtitle: {

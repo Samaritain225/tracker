@@ -55,6 +55,7 @@ const settingsRow: Settings = {
   remindersEnabled: 1,
   showStarSign: 1,
   pregnancyPromptDismissedFor: null,
+  school: null,
 };
 
 function sampleBackup(): Backup {
@@ -103,6 +104,7 @@ describe('buildBackup', () => {
       periodDurationDays: 6,
       theme: 'dark',
       showStarSign: true,
+      school: null,
     });
   });
 
@@ -292,6 +294,7 @@ describe('version 2: pregnancies', () => {
     outcome: 'birth',
     babyName: 'Awa',
     breastfeeding: 1,
+    journeyChoice: null,
     createdAt: 6,
   };
   const visitRow: PregnancyVisit = {
@@ -335,6 +338,7 @@ describe('version 2: pregnancies', () => {
         outcome: 'birth',
         babyName: 'Awa',
         breastfeeding: true,
+        journeyChoice: null,
         startedAt: 5,
         createdAt: 6,
       },
@@ -402,5 +406,107 @@ describe('version 2: pregnancies', () => {
     );
     expect(plan.settingsToApply).toBeNull();
     expect(plan.pregnanciesToAdd).toHaveLength(1);
+  });
+});
+
+describe('Islamic option in backups', () => {
+  function withFasts(): Backup {
+    return buildBackup(periodRows, logRows, { ...settingsRow, school: 'maliki' }, NOW, {
+      pregnancies: [],
+      visits: [],
+      moments: [],
+      ramadanOwed: [{ hijriYear: 1447, owedDays: 6, updatedAt: 1 }],
+      fastsMadeUp: [{ id: 'f1', hijriYear: 1447, date: '2026-04-10', createdAt: 2 }],
+    });
+  }
+
+  it('carries the school, the owed counts and the made-up fasts', () => {
+    const backup = withFasts();
+    expect(backup.settings?.school).toBe('maliki');
+    expect(backup.ramadanOwed).toEqual([{ hijriYear: 1447, owedDays: 6 }]);
+    expect(backup.fastsMadeUp).toEqual([{ hijriYear: 1447, date: '2026-04-10', createdAt: 2 }]);
+    expect(parseBackup(serializeBackup(backup))).toEqual({ ok: true, backup });
+  });
+
+  it('reads a version 2 file from before the option as having none of it', () => {
+    const older = withFasts() as Record<string, unknown>;
+    delete older.ramadanOwed;
+    delete older.fastsMadeUp;
+    delete (older.settings as Record<string, unknown>).school;
+    const result = parseBackup(asFile(older));
+    expect(result.ok && result.backup.ramadanOwed).toEqual([]);
+    expect(result.ok && result.backup.settings?.school).toBeNull();
+  });
+
+  it('only adds what the phone does not already have', () => {
+    const plan = planRestore(
+      {
+        periods: [],
+        logs: [],
+        ramadanOwed: [{ hijriYear: 1447 }],
+        fastsMadeUp: [{ hijriYear: 1447, date: '2026-04-10' }],
+      },
+      withFasts(),
+    );
+    expect(plan.ramadanOwedToAdd).toEqual([]);
+    expect(plan.fastsMadeUpToAdd).toEqual([]);
+    const fresh = planRestore({ periods: [], logs: [] }, withFasts());
+    expect(fresh.ramadanOwedToAdd).toHaveLength(1);
+    expect(fresh.fastsMadeUpToAdd).toHaveLength(1);
+  });
+});
+
+describe('custom symptoms in backups', () => {
+  const migraine = { id: 'c1', label: 'Migraine', hidden: 0, createdAt: 5 };
+  function withCustom(): Backup {
+    const logs: DailyLog[] = [
+      { ...logRows[0], date: '2026-06-01', symptoms: ['cramps', 'custom:c1'] },
+    ];
+    return buildBackup([], logs, settingsRow, NOW, {
+      pregnancies: [],
+      visits: [],
+      moments: [],
+      customSymptoms: [migraine],
+    });
+  }
+
+  it('carries her symptoms with their ids, so logs still point at them', () => {
+    const backup = withCustom();
+    expect(backup.customSymptoms).toEqual([{ id: 'c1', label: 'Migraine', hidden: false, createdAt: 5 }]);
+    expect(parseBackup(serializeBackup(backup))).toEqual({ ok: true, backup });
+  });
+
+  it('reads an older file as having none', () => {
+    const older = withCustom() as Record<string, unknown>;
+    delete older.customSymptoms;
+    const result = parseBackup(asFile(older));
+    expect(result.ok && result.backup.customSymptoms).toEqual([]);
+  });
+
+  it('adds a symptom the phone has neither by id nor by name', () => {
+    const plan = planRestore({ periods: [], logs: [] }, withCustom());
+    expect(plan.customSymptomsToAdd.map((c) => c.id)).toEqual(['c1']);
+    expect(plan.logsToAdd[0].symptoms).toEqual(['cramps', 'custom:c1']);
+  });
+
+  it('skips one the phone already has by id', () => {
+    const plan = planRestore({ periods: [], logs: [], customSymptoms: [{ id: 'c1', label: 'Migraine' }] }, withCustom());
+    expect(plan.customSymptomsToAdd).toEqual([]);
+    expect(plan.logsToAdd[0].symptoms).toEqual(['cramps', 'custom:c1']);
+  });
+
+  it("merges one with the same name into the phone's, re-pointing the logs", () => {
+    const plan = planRestore(
+      { periods: [], logs: [], customSymptoms: [{ id: 'p9', label: 'migraine ' }] },
+      withCustom(),
+    );
+    expect(plan.customSymptomsToAdd).toEqual([]);
+    expect(plan.logsToAdd[0].symptoms).toEqual(['cramps', 'custom:p9']);
+  });
+
+  it('refuses a symptom with no name', () => {
+    const bad = withCustom() as Record<string, unknown>;
+    bad.customSymptoms = [{ id: 'c2', label: '  ' }];
+    expect(parseBackup(asFile(bad))).toEqual({ ok: false, error: 'invalid' });
   });
 });

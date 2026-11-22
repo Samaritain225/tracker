@@ -34,6 +34,7 @@ import {
   findActivePregnancy,
   gestationalAge,
 } from '@/utils/pregnancy';
+import { formatAge } from '@/components/pregnancy/format-age';
 
 /** How far a scan due date may sit from the one worked out from the
  * last period before the two are treated as contradicting each other. */
@@ -174,7 +175,7 @@ function PregnancySetupForm({ latestPeriod }: { latestPeriod: string | null }) {
           {error ??
             t('pregnancy.setup_result', {
               date: formatDisplayDate(parseISODate(dueISO), language, calendarType),
-              age: t('pregnancy.age', { weeks: age.weeks, days: age.days }),
+              age: formatAge(t, age),
             })}
         </Text>
         {failed ? <Text style={styles.error}>{t('pregnancy.error_save')}</Text> : null}
