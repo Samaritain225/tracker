@@ -41,6 +41,7 @@ import {
 } from '@/utils/pregnancy';
 import type { DateSpan } from '@/utils/pregnancy';
 import { formatAge } from '@/components/pregnancy/format-age';
+import { HowLink } from '@/components/ui/how-link';
 
 /** How far a scan due date may sit from the one worked out from the
  * last period before the two are treated as contradicting each other. */
@@ -213,6 +214,7 @@ function PregnancySetupForm({
             })}
           </Text>
         ) : null}
+        <HowLink section="pregnancy" />
         {failed ? <Text style={styles.error}>{t('pregnancy.error_save')}</Text> : null}
 
         <Button
