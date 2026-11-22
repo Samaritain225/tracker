@@ -55,6 +55,7 @@ const settingsRow: Settings = {
   remindersEnabled: 1,
   showStarSign: 1,
   pregnancyPromptDismissedFor: null,
+  school: null,
 };
 
 function sampleBackup(): Backup {

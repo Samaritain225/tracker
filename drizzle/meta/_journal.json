@@ -43,6 +43,13 @@
       "when": 1795310735312,
       "tag": "0005_journey_choice",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1795316328178,
+      "tag": "0006_islamic_option",
+      "breakpoints": true
     }
   ]
 }
