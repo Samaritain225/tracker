@@ -45,18 +45,16 @@ import { daysBetween, formatDisplayDate, parseISODate } from '@/utils/date';
 import { findPeriodCovering } from '@/utils/cycle';
 import { useSettings } from '@/hooks/use-settings';
 import type { DailyLog, FlowLevel } from '@/db/schema';
-
-const SYMPTOMS = ['cramps', 'headache', 'bloating', 'acne', 'fatigue'];
-const PREGNANCY_SYMPTOMS = [
-  'nausea',
-  'fatigue',
-  'back_pain',
-  'heartburn',
-  'swelling',
-  'headache',
-  'cramps',
-  'baby_moved',
-];
+import { useCustomSymptoms } from '@/hooks/use-custom-symptoms';
+import {
+  CYCLE_SYMPTOMS,
+  MOODS,
+  PREGNANCY_SYMPTOMS,
+  cleanLabel,
+  customKey,
+  CUSTOM_LABEL_MAX,
+  isDuplicateLabel,
+} from '@/utils/symptoms';
 
 /**
  * What kind of day this is, which decides what the sheet offers:
@@ -69,7 +67,6 @@ const PREGNANCY_SYMPTOMS = [
  *    has come back", the one deliberate way back to cycle tracking.
  */
 type DayKind = 'cycle' | 'pregnancy' | 'recovery';
-const MOODS = ['happy', 'sensitive', 'sad', 'anxious'];
 
 export default function DayDetailsScreen() {
   const { date, periodReturn } = useLocalSearchParams<{ date: string; periodReturn?: string }>();
@@ -218,7 +215,8 @@ function DayDetailsForm({
 
   const [isPeriodStart, setIsPeriodStart] = useState(!!initialPeriodId || allowPeriodReturn);
   const showPeriodSwitches = dayKind === 'cycle' || allowPeriodReturn;
-  const symptomList = dayKind === 'pregnancy' ? PREGNANCY_SYMPTOMS : SYMPTOMS;
+  const builtInSymptoms = dayKind === 'pregnancy' ? PREGNANCY_SYMPTOMS : CYCLE_SYMPTOMS;
+  const { visible: visibleCustom, customSymptoms: allCustom, labelOf, addSymptom } = useCustomSymptoms();
   const [isPeriodEnd, setIsPeriodEnd] = useState(initialIsPeriodEnd);
   const [flow, setFlow] = useState<FlowLevel | null>(
     (initialLog?.flow as FlowLevel) ?? null,
@@ -236,6 +234,53 @@ function DayDetailsForm({
         : [...prev, symptom],
     );
   }, []);
+
+  // Built-in chips, then her own: the visible ones, plus any hidden one
+  // already ticked on this day so she can still untick it.
+  const symptomList = React.useMemo(() => {
+    const custom = allCustom
+      .filter((c) => c.hidden === 0 || symptoms.includes(customKey(c.id)))
+      .map((c) => customKey(c.id));
+    return [...builtInSymptoms, ...custom];
+  }, [builtInSymptoms, allCustom, symptoms]);
+
+  const [adding, setAdding] = useState(false);
+  const [newSymptom, setNewSymptom] = useState('');
+  const [addError, setAddError] = useState<string | null>(null);
+
+  const handleAddSymptom = useCallback(async () => {
+    const label = cleanLabel(newSymptom);
+    if (!label) return;
+    const taken = [
+      ...PREGNANCY_SYMPTOMS.map(labelOf),
+      ...CYCLE_SYMPTOMS.map(labelOf),
+      ...allCustom.map((c) => c.label),
+    ];
+    if (isDuplicateLabel(label, taken)) {
+      // Already exists: tick it rather than make a second one.
+      const existing = allCustom.find((c) => isDuplicateLabel(label, [c.label]));
+      const builtIn = [...builtInSymptoms].find((k) => isDuplicateLabel(label, [labelOf(k)]));
+      const key = existing ? customKey(existing.id) : builtIn;
+      if (key) {
+        setSymptoms((prev) => (prev.includes(key) ? prev : [...prev, key]));
+        setNewSymptom('');
+        setAdding(false);
+        setAddError(null);
+        return;
+      }
+      setAddError(t('symptoms.duplicate'));
+      return;
+    }
+    const id = await addSymptom(label);
+    if (!id) {
+      setAddError(t('errors.save_failed'));
+      return;
+    }
+    setSymptoms((prev) => [...prev, customKey(id)]);
+    setNewSymptom('');
+    setAdding(false);
+    setAddError(null);
+  }, [newSymptom, labelOf, allCustom, builtInSymptoms, addSymptom, t]);
 
   const handleFlowChange = useCallback((val: string) => {
     // Tapping the already-active option deselects it, since
@@ -423,12 +468,55 @@ function DayDetailsForm({
                     style={[styles.chip, active && styles.chipActive]}
                   >
                     <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                      {t(`day_details.symptom_${sym}`)}
+                      {labelOf(sym)}
                     </Text>
                   </Pressable>
                 );
               })}
+              {!adding && (
+                <Pressable
+                  onPress={() => setAdding(true)}
+                  style={[styles.chip, styles.chipAdd]}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.chipText}>{t('symptoms.add_own')}</Text>
+                </Pressable>
+              )}
             </View>
+            {adding && (
+              <View style={styles.addRow}>
+                <TextInput
+                  style={styles.addInput}
+                  value={newSymptom}
+                  onChangeText={(v) => {
+                    setNewSymptom(v);
+                    setAddError(null);
+                  }}
+                  placeholder={t('symptoms.add_placeholder')}
+                  placeholderTextColor={colors.textMuted}
+                  maxLength={CUSTOM_LABEL_MAX}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleAddSymptom}
+                />
+                <Pressable onPress={handleAddSymptom} style={styles.addButton} accessibilityRole="button">
+                  <Text style={styles.addButtonText}>{t('symptoms.add')}</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    setAdding(false);
+                    setNewSymptom('');
+                    setAddError(null);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('common.cancel')}
+                  hitSlop={8}
+                >
+                  <Icon name="close" size={20} color={colors.textSecondary} />
+                </Pressable>
+              </View>
+            )}
+            {addError && <Text style={styles.addError}>{addError}</Text>}
           </Card>
         </Animated.View>
 
@@ -566,6 +654,42 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.surfaceAlt,
     borderWidth: 1,
     borderColor: 'transparent',
+  },
+  chipAdd: {
+    backgroundColor: 'transparent',
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+  },
+  addRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  addInput: {
+    flex: 1,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: Radii.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    fontSize: Typography.sizes.md,
+    color: colors.textPrimary,
+  },
+  addButton: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radii.full,
+    backgroundColor: colors.primary,
+  },
+  addButtonText: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold,
+    color: colors.primaryText,
+  },
+  addError: {
+    marginTop: Spacing.xs,
+    fontSize: Typography.sizes.sm,
+    color: colors.danger,
   },
   chipActive: {
     backgroundColor: colors.primary,

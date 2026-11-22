@@ -8,6 +8,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Card } from '@/components/ui/card';
+import { useCustomSymptoms } from '@/hooks/use-custom-symptoms';
 import { Radii, Spacing, Typography } from '@/constants/theme';
 import type { ThemeColors } from '@/constants/theme';
 import type { DailyLog, Pregnancy, PregnancyVisit } from '@/db/schema';
@@ -29,6 +30,7 @@ const CELL = 22;
 
 export function PregnancyInsights({ pregnancy, visits, logs, todayISO, language, calendarType }: Props) {
   const { t } = useTranslation();
+  const { labelOf } = useCustomSymptoms();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const formatDate = (iso: string) => formatDisplayDate(parseISODate(iso), language, calendarType);
@@ -56,7 +58,7 @@ export function PregnancyInsights({ pregnancy, visits, logs, todayISO, language,
               <View style={{ height: CELL }} />
               {grid.rows.map((row) => (
                 <Text key={row.key} style={styles.rowLabel} numberOfLines={1}>
-                  {t(`day_details.symptom_${row.key}`, { defaultValue: row.key })}
+                  {labelOf(row.key)}
                 </Text>
               ))}
             </View>

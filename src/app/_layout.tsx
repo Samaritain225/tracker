@@ -67,6 +67,8 @@ function AppContent() {
         <Stack.Screen name="pregnancy/journey/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="islamic/fasts" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen name="islamic/sources" options={{ presentation: 'modal', headerShown: false }} />
+        <Stack.Screen name="symptoms" options={{ presentation: 'modal', headerShown: false }} />
+        <Stack.Screen name="summary" options={{ presentation: 'modal', headerShown: false }} />
         <Stack.Screen
           name="pregnancy/sources"
           options={{ presentation: 'modal', headerShown: false }}

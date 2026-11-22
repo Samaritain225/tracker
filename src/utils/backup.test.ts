@@ -455,3 +455,58 @@ describe('Islamic option in backups', () => {
     expect(fresh.fastsMadeUpToAdd).toHaveLength(1);
   });
 });
+
+describe('custom symptoms in backups', () => {
+  const migraine = { id: 'c1', label: 'Migraine', hidden: 0, createdAt: 5 };
+  function withCustom(): Backup {
+    const logs: DailyLog[] = [
+      { ...logRows[0], date: '2026-06-01', symptoms: ['cramps', 'custom:c1'] },
+    ];
+    return buildBackup([], logs, settingsRow, NOW, {
+      pregnancies: [],
+      visits: [],
+      moments: [],
+      customSymptoms: [migraine],
+    });
+  }
+
+  it('carries her symptoms with their ids, so logs still point at them', () => {
+    const backup = withCustom();
+    expect(backup.customSymptoms).toEqual([{ id: 'c1', label: 'Migraine', hidden: false, createdAt: 5 }]);
+    expect(parseBackup(serializeBackup(backup))).toEqual({ ok: true, backup });
+  });
+
+  it('reads an older file as having none', () => {
+    const older = withCustom() as Record<string, unknown>;
+    delete older.customSymptoms;
+    const result = parseBackup(asFile(older));
+    expect(result.ok && result.backup.customSymptoms).toEqual([]);
+  });
+
+  it('adds a symptom the phone has neither by id nor by name', () => {
+    const plan = planRestore({ periods: [], logs: [] }, withCustom());
+    expect(plan.customSymptomsToAdd.map((c) => c.id)).toEqual(['c1']);
+    expect(plan.logsToAdd[0].symptoms).toEqual(['cramps', 'custom:c1']);
+  });
+
+  it('skips one the phone already has by id', () => {
+    const plan = planRestore({ periods: [], logs: [], customSymptoms: [{ id: 'c1', label: 'Migraine' }] }, withCustom());
+    expect(plan.customSymptomsToAdd).toEqual([]);
+    expect(plan.logsToAdd[0].symptoms).toEqual(['cramps', 'custom:c1']);
+  });
+
+  it("merges one with the same name into the phone's, re-pointing the logs", () => {
+    const plan = planRestore(
+      { periods: [], logs: [], customSymptoms: [{ id: 'p9', label: 'migraine ' }] },
+      withCustom(),
+    );
+    expect(plan.customSymptomsToAdd).toEqual([]);
+    expect(plan.logsToAdd[0].symptoms).toEqual(['cramps', 'custom:p9']);
+  });
+
+  it('refuses a symptom with no name', () => {
+    const bad = withCustom() as Record<string, unknown>;
+    bad.customSymptoms = [{ id: 'c2', label: '  ' }];
+    expect(parseBackup(asFile(bad))).toEqual({ ok: false, error: 'invalid' });
+  });
+});
