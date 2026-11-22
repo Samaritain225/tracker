@@ -37,16 +37,40 @@ import { LoadingScreen } from '@/components/ui/loading-screen';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { usePeriods } from '@/hooks/use-periods';
+import { usePregnancies } from '@/hooks/use-pregnancies';
+import { resolveMode } from '@/utils/pregnancy';
+import { IslamicCard } from '@/components/islamic/islamic-card';
+import { useIslamicStatus } from '@/hooks/use-islamic';
 import { daysBetween, formatDisplayDate, parseISODate } from '@/utils/date';
+import { findPeriodCovering } from '@/utils/cycle';
 import { useSettings } from '@/hooks/use-settings';
-import { MAX_INFERRED_PERIOD_DAYS } from '@/constants/cycle';
-import type { DailyLog, FlowLevel, Period } from '@/db/schema';
+import type { DailyLog, FlowLevel } from '@/db/schema';
+import { useCustomSymptoms } from '@/hooks/use-custom-symptoms';
+import {
+  CYCLE_SYMPTOMS,
+  MOODS,
+  PREGNANCY_SYMPTOMS,
+  cleanLabel,
+  customKey,
+  CUSTOM_LABEL_MAX,
+  isDuplicateLabel,
+} from '@/utils/symptoms';
 
-const SYMPTOMS = ['cramps', 'headache', 'bloating', 'acne', 'fatigue'];
-const MOODS = ['happy', 'sensitive', 'sad', 'anxious'];
+/**
+ * What kind of day this is, which decides what the sheet offers:
+ *  - cycle: today's sheet, with the period switches.
+ *  - pregnancy: a day inside a pregnancy. No period switches — bleeding
+ *    is logged as bleeding and never starts or extends a period — and
+ *    the pregnancy symptom list.
+ *  - recovery: after a pregnancy ended, before a period was logged. No
+ *    period switches either, unless the sheet was opened from "My period
+ *    has come back", the one deliberate way back to cycle tracking.
+ */
+type DayKind = 'cycle' | 'pregnancy' | 'recovery';
 
 export default function DayDetailsScreen() {
-  const { date } = useLocalSearchParams<{ date: string }>();
+  const { date, periodReturn } = useLocalSearchParams<{ date: string; periodReturn?: string }>();
+  const { pregnancies, isLoading: pregnanciesLoading } = usePregnancies();
   const { settings } = useSettings();
   const {
     periods,
@@ -56,13 +80,13 @@ export default function DayDetailsScreen() {
     error: periodError,
     isLoading: periodsLoading,
   } = usePeriods();
-  const { logs, saveLog, isLoading: logsLoading } = useDailyLogs();
+  const { logs, saveLog, isLoading: logsLoading, error: logError } = useDailyLogs();
 
   if (!date) return null;
 
   // Wait for both live queries to resolve before mounting the form, so
   // its initial state is never derived from an empty placeholder array.
-  if (periodsLoading || logsLoading) {
+  if (periodsLoading || logsLoading || pregnanciesLoading) {
     return (
       <View style={{ flex: 1 }}>
         <LoadingScreen />
@@ -74,17 +98,59 @@ export default function DayDetailsScreen() {
   const periodOnDate = periods.find((p) => p.startDate === date) ?? null;
   const containingPeriod = findPeriodCovering(periods, date);
 
+  // This day already belongs to a period without being its start, so
+  // offering "period started" here would let the user log a second start
+  // a few days after the first — which is not a new cycle, and which
+  // dragged the whole average down to the gap between them. Shown as
+  // context instead. (When the day *is* a start the two resolve to the
+  // same record, so this stays null.)
+  const partOfPeriod =
+    containingPeriod && !periodOnDate
+      ? {
+          startDate: containingPeriod.startDate,
+          // 1-based, so the first day reads as "Day 1" — the same
+          // convention as OngoingPeriod.dayOfPeriod.
+          dayOfPeriod:
+            daysBetween(parseISODate(containingPeriod.startDate), parseISODate(date)) + 1,
+        }
+      : null;
+
+  const inPregnancy = pregnancies.some(
+    (p) => date > p.lastPeriodDate && (p.endedOn === null || date <= p.endedOn),
+  );
+  const mode = resolveMode(pregnancies, periods.map((p) => p.startDate));
+  const inRecovery =
+    mode.kind === 'recovery' && mode.pregnancy.endedOn !== null && date > mode.pregnancy.endedOn;
+  const dayKind: DayKind = inPregnancy ? 'pregnancy' : inRecovery ? 'recovery' : 'cycle';
+  const islamicMode = dayKind === 'pregnancy' ? 'pregnant' : dayKind === 'recovery' ? 'recovery' : 'cycle';
+  const islamicOutcome =
+    dayKind === 'recovery' && mode.kind === 'recovery' ? mode.outcome : undefined;
+
   return (
     <DayDetailsForm
       key={date}
       date={date}
+      dayKind={dayKind}
+      allowPeriodReturn={dayKind === 'recovery' && periodReturn === '1'}
+      islamic={
+        <DayIslamicLine
+          date={date}
+          mode={islamicMode}
+          outcome={islamicOutcome}
+          periods={periods}
+          logs={logs}
+          pregnancies={pregnancies}
+          settings={settings}
+        />
+      }
       language={(settings?.language as 'en' | 'fr') ?? 'fr'}
       calendarType={(settings?.calendarType as 'gregorian' | 'hijri') ?? 'gregorian'}
       initialLog={currentLog}
       initialPeriodId={periodOnDate?.id ?? null}
       containingPeriodId={containingPeriod?.id ?? null}
+      partOfPeriod={partOfPeriod}
       initialIsPeriodEnd={containingPeriod?.endDate === date}
-      periodError={periodError}
+      saveError={periodError ?? logError}
       addPeriod={addPeriod}
       removePeriod={removePeriod}
       setPeriodEnd={setPeriodEnd}
@@ -93,28 +159,14 @@ export default function DayDetailsScreen() {
   );
 }
 
-/**
- * The period a given day plausibly belongs to: the most recent one that
- * started on or before it, within the longest run of bleeding we'd infer.
- *
- * This is what the "period ended" switch attaches to, so the switch can
- * appear on any day of a period rather than only its first — you mark the
- * end on the last day of bleeding, which is never the start day.
- */
-function findPeriodCovering(list: Period[], date: string): Period | null {
-  let best: Period | null = null;
-  for (const p of list) {
-    if (p.startDate > date) continue;
-    const elapsed = daysBetween(parseISODate(p.startDate), parseISODate(date));
-    if (elapsed < MAX_INFERRED_PERIOD_DAYS && (!best || p.startDate > best.startDate)) {
-      best = p;
-    }
-  }
-  return best;
-}
-
 type DayDetailsFormProps = {
   date: string;
+  /** The Islamic option's reference line for this day, or nothing. */
+  islamic: React.ReactNode;
+  dayKind: DayKind;
+  /** Opened from "My period has come back": offer "period started",
+   * switched on, even though this is a recovery day. */
+  allowPeriodReturn: boolean;
   language: 'en' | 'fr';
   calendarType: 'gregorian' | 'hijri';
   initialLog: DailyLog | null;
@@ -122,26 +174,34 @@ type DayDetailsFormProps = {
   /** The period this day falls inside, if any — what the "period ended"
    * switch writes to. Null on days not part of any period. */
   containingPeriodId: string | null;
+  /** Set when this day sits inside a period without being its start.
+   * Replaces the "period started" switch with context — see the shell. */
+  partOfPeriod: { startDate: string; dayOfPeriod: number } | null;
   initialIsPeriodEnd: boolean;
-  periodError: string | null;
-  addPeriod: (date: string) => Promise<void>;
-  removePeriod: (id: string) => Promise<void>;
-  setPeriodEnd: (id: string, date: string | null) => Promise<void>;
+  /** Whichever write last failed, as an `errors.*` translation key. */
+  saveError: string | null;
+  addPeriod: (date: string) => Promise<string | null>;
+  removePeriod: (id: string) => Promise<boolean>;
+  setPeriodEnd: (id: string, date: string | null) => Promise<boolean>;
   saveLog: (
     date: string,
     partial: { flow: string | null; symptoms: string[]; mood: string | null; notes: string | null },
-  ) => Promise<void>;
+  ) => Promise<boolean>;
 };
 
 function DayDetailsForm({
   date,
+  islamic,
+  dayKind,
+  allowPeriodReturn,
   language,
   calendarType,
   initialLog,
   initialPeriodId,
   containingPeriodId,
+  partOfPeriod,
   initialIsPeriodEnd,
-  periodError,
+  saveError,
   addPeriod,
   removePeriod,
   setPeriodEnd,
@@ -153,7 +213,10 @@ function DayDetailsForm({
   const { colors } = useTheme();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
 
-  const [isPeriodStart, setIsPeriodStart] = useState(!!initialPeriodId);
+  const [isPeriodStart, setIsPeriodStart] = useState(!!initialPeriodId || allowPeriodReturn);
+  const showPeriodSwitches = dayKind === 'cycle' || allowPeriodReturn;
+  const builtInSymptoms = dayKind === 'pregnancy' ? PREGNANCY_SYMPTOMS : CYCLE_SYMPTOMS;
+  const { visible: visibleCustom, customSymptoms: allCustom, labelOf, addSymptom } = useCustomSymptoms();
   const [isPeriodEnd, setIsPeriodEnd] = useState(initialIsPeriodEnd);
   const [flow, setFlow] = useState<FlowLevel | null>(
     (initialLog?.flow as FlowLevel) ?? null,
@@ -172,47 +235,112 @@ function DayDetailsForm({
     );
   }, []);
 
+  // Built-in chips, then her own: the visible ones, plus any hidden one
+  // already ticked on this day so she can still untick it.
+  const symptomList = React.useMemo(() => {
+    const custom = allCustom
+      .filter((c) => c.hidden === 0 || symptoms.includes(customKey(c.id)))
+      .map((c) => customKey(c.id));
+    return [...builtInSymptoms, ...custom];
+  }, [builtInSymptoms, allCustom, symptoms]);
+
+  const [adding, setAdding] = useState(false);
+  const [newSymptom, setNewSymptom] = useState('');
+  const [addError, setAddError] = useState<string | null>(null);
+
+  const handleAddSymptom = useCallback(async () => {
+    const label = cleanLabel(newSymptom);
+    if (!label) return;
+    const taken = [
+      ...PREGNANCY_SYMPTOMS.map(labelOf),
+      ...CYCLE_SYMPTOMS.map(labelOf),
+      ...allCustom.map((c) => c.label),
+    ];
+    if (isDuplicateLabel(label, taken)) {
+      // Already exists: tick it rather than make a second one.
+      const existing = allCustom.find((c) => isDuplicateLabel(label, [c.label]));
+      const builtIn = [...builtInSymptoms].find((k) => isDuplicateLabel(label, [labelOf(k)]));
+      const key = existing ? customKey(existing.id) : builtIn;
+      if (key) {
+        setSymptoms((prev) => (prev.includes(key) ? prev : [...prev, key]));
+        setNewSymptom('');
+        setAdding(false);
+        setAddError(null);
+        return;
+      }
+      setAddError(t('symptoms.duplicate'));
+      return;
+    }
+    const id = await addSymptom(label);
+    if (!id) {
+      setAddError(t('errors.save_failed'));
+      return;
+    }
+    setSymptoms((prev) => [...prev, customKey(id)]);
+    setNewSymptom('');
+    setAdding(false);
+    setAddError(null);
+  }, [newSymptom, labelOf, allCustom, builtInSymptoms, addSymptom, t]);
+
   const handleFlowChange = useCallback((val: string) => {
     // Tapping the already-active option deselects it, since
     // SegmentedControl always fires onChange with the pressed value.
     setFlow((prev) => (prev === val ? null : (val as FlowLevel)));
   }, []);
 
+  // Each step below bails on failure rather than pressing on, and only a
+  // clean run through all of them shows the success tick and navigates
+  // away. Previously every path landed in a `finally` that did both, so a
+  // rejected write — a duplicate date, an end before its start — looked
+  // exactly like a successful save while the entry was discarded.
   const handleSave = useCallback(async () => {
     setSaving(true);
 
     try {
-      // Manage period toggle
+      let createdPeriodId: string | null = null;
+      let deletedPeriodId: string | null = null;
+
       if (isPeriodStart && !initialPeriodId) {
-        await addPeriod(date);
+        createdPeriodId = await addPeriod(date);
+        if (!createdPeriodId) return;
       } else if (!isPeriodStart && initialPeriodId) {
-        await removePeriod(initialPeriodId);
+        if (!(await removePeriod(initialPeriodId))) return;
+        deletedPeriodId = initialPeriodId;
       }
 
-      // Marking this day as the end records it on the period this day
-      // belongs to; unmarking clears the override so the flow logs infer
-      // the length again. Skipped when the period was just deleted above.
-      const periodStillExists = isPeriodStart || containingPeriodId !== initialPeriodId;
-      if (containingPeriodId && periodStillExists && isPeriodEnd !== initialIsPeriodEnd) {
-        await setPeriodEnd(containingPeriodId, isPeriodEnd ? date : null);
+      // A period started on this very day owns an end marked on it,
+      // ahead of any older period whose window still reaches here.
+      // Resolved after the insert, so it can't name a stale row — and
+      // nulled out when the period it would have pointed at was just
+      // deleted.
+      const endTarget =
+        createdPeriodId ??
+        (containingPeriodId === deletedPeriodId ? null : containingPeriodId);
+
+      // Marking this day as the end records it on that period; unmarking
+      // clears the override so the flow logs infer the length again.
+      if (endTarget && isPeriodEnd !== initialIsPeriodEnd) {
+        if (!(await setPeriodEnd(endTarget, isPeriodEnd ? date : null))) return;
       }
 
       // Always save — saveLog itself deletes the row when every field is
       // empty, so clearing a previously-logged day now actually clears it
       // instead of silently leaving the old data in place (plan item 2b).
-      await saveLog(date, {
+      const logged = await saveLog(date, {
         flow: flow ?? null,
         symptoms,
         mood: mood ?? null,
         notes: notes || null,
       });
-    } finally {
-      setSaving(false);
+      if (!logged) return;
+
       setSaved(true);
       // Wait for a brief moment to show the success state
       setTimeout(() => {
         router.back();
       }, 600);
+    } finally {
+      setSaving(false);
     }
   }, [
     date,
@@ -256,17 +384,33 @@ function DayDetailsForm({
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + Spacing.xxl }]}
       >
+        {showPeriodSwitches ? (
         <Animated.View entering={FadeInDown.duration(400).delay(100).springify()}>
           <Card style={styles.card}>
-            <View style={styles.row}>
-              <Text style={styles.label}>{t('day_details.period_started')}</Text>
-              <Switch
-                value={isPeriodStart}
-                onValueChange={setIsPeriodStart}
-                trackColor={{ true: colors.period, false: colors.border }}
-                thumbColor={colors.surface}
-              />
-            </View>
+            {/* A day already inside a period gets context, not a second
+                "period started" switch — see the shell for why. */}
+            {partOfPeriod ? (
+              <Text style={styles.contextLine}>
+                {t('day_details.part_of_period', {
+                  day: partOfPeriod.dayOfPeriod,
+                  date: formatDisplayDate(
+                    parseISODate(partOfPeriod.startDate),
+                    language,
+                    calendarType,
+                  ),
+                })}
+              </Text>
+            ) : (
+              <View style={styles.row}>
+                <Text style={styles.label}>{t('day_details.period_started')}</Text>
+                <Switch
+                  value={isPeriodStart}
+                  onValueChange={setIsPeriodStart}
+                  trackColor={{ true: colors.period, false: colors.border }}
+                  thumbColor={colors.surface}
+                />
+              </View>
+            )}
 
             {/* Only offered on days that belong to a period — marking an
                 end is meaningless anywhere else. */}
@@ -285,15 +429,19 @@ function DayDetailsForm({
               </>
             ) : null}
 
-            {periodError ? (
-              <Text style={styles.error}>{t(`errors.${periodError}`)}</Text>
-            ) : null}
           </Card>
         </Animated.View>
+        ) : null}
 
         <Animated.View entering={FadeInDown.duration(400).delay(150).springify()}>
           <Card style={styles.card}>
-            <Text style={styles.sectionTitle}>{t('day_details.flow')}</Text>
+            <Text style={styles.sectionTitle}>
+              {dayKind === 'cycle' ? t('day_details.flow') : t('day_details.bleeding')}
+            </Text>
+            {dayKind === 'pregnancy' ? (
+              <Text style={styles.hint}>{t('day_details.bleeding_hint')}</Text>
+            ) : null}
+            {islamic}
             <SegmentedControl
               options={[
                 { label: t('day_details.flow_spotting'), value: 'spotting' },
@@ -311,7 +459,7 @@ function DayDetailsForm({
           <Card style={styles.card}>
             <Text style={styles.sectionTitle}>{t('day_details.symptoms')}</Text>
             <View style={styles.chipGroup}>
-              {SYMPTOMS.map((sym) => {
+              {symptomList.map((sym) => {
                 const active = symptoms.includes(sym);
                 return (
                   <Pressable
@@ -320,12 +468,55 @@ function DayDetailsForm({
                     style={[styles.chip, active && styles.chipActive]}
                   >
                     <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                      {t(`day_details.symptom_${sym}`)}
+                      {labelOf(sym)}
                     </Text>
                   </Pressable>
                 );
               })}
+              {!adding && (
+                <Pressable
+                  onPress={() => setAdding(true)}
+                  style={[styles.chip, styles.chipAdd]}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.chipText}>{t('symptoms.add_own')}</Text>
+                </Pressable>
+              )}
             </View>
+            {adding && (
+              <View style={styles.addRow}>
+                <TextInput
+                  style={styles.addInput}
+                  value={newSymptom}
+                  onChangeText={(v) => {
+                    setNewSymptom(v);
+                    setAddError(null);
+                  }}
+                  placeholder={t('symptoms.add_placeholder')}
+                  placeholderTextColor={colors.textMuted}
+                  maxLength={CUSTOM_LABEL_MAX}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleAddSymptom}
+                />
+                <Pressable onPress={handleAddSymptom} style={styles.addButton} accessibilityRole="button">
+                  <Text style={styles.addButtonText}>{t('symptoms.add')}</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    setAdding(false);
+                    setNewSymptom('');
+                    setAddError(null);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('common.cancel')}
+                  hitSlop={8}
+                >
+                  <Icon name="close" size={20} color={colors.textSecondary} />
+                </Pressable>
+              </View>
+            )}
+            {addError && <Text style={styles.addError}>{addError}</Text>}
           </Card>
         </Animated.View>
 
@@ -368,6 +559,12 @@ function DayDetailsForm({
 
         <Animated.View entering={FadeInDown.duration(400).delay(350).springify()}>
           <View style={styles.footer}>
+            {/* Sits with the Save button rather than in the period card:
+                it now reports whichever write failed, and it is the
+                reason the screen stayed open instead of navigating. */}
+            {saveError ? (
+              <Text style={styles.error}>{t(`errors.${saveError}`)}</Text>
+            ) : null}
             <Button
               label={saved ? t('day_details.save') : (saving ? t('day_details.saving') : t('day_details.save'))}
               onPress={handleSave}
@@ -423,6 +620,11 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: Typography.weights.medium,
     color: colors.textPrimary,
   },
+  contextLine: {
+    fontSize: Typography.sizes.md,
+    fontWeight: Typography.weights.medium,
+    color: colors.textSecondary,
+  },
   error: {
     fontSize: Typography.sizes.sm,
     color: colors.danger,
@@ -453,6 +655,42 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     borderColor: 'transparent',
   },
+  chipAdd: {
+    backgroundColor: 'transparent',
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+  },
+  addRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  addInput: {
+    flex: 1,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: Radii.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    fontSize: Typography.sizes.md,
+    color: colors.textPrimary,
+  },
+  addButton: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radii.full,
+    backgroundColor: colors.primary,
+  },
+  addButtonText: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold,
+    color: colors.primaryText,
+  },
+  addError: {
+    marginTop: Spacing.xs,
+    fontSize: Typography.sizes.sm,
+    color: colors.danger,
+  },
   chipActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
@@ -476,5 +714,32 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   footer: {
     marginTop: Spacing.md,
+    gap: Spacing.sm,
   },
 });
+
+/**
+ * The Maliki reference for this day, from what is already saved. Kept
+ * outside the form so the form's state never depends on it.
+ */
+function DayIslamicLine(props: {
+  date: string;
+  mode: 'cycle' | 'pregnant' | 'recovery';
+  outcome?: 'birth' | 'loss';
+  periods: Parameters<typeof useIslamicStatus>[0]['periods'];
+  logs: Parameters<typeof useIslamicStatus>[0]['logs'];
+  pregnancies: Parameters<typeof useIslamicStatus>[0]['pregnancies'];
+  settings: Parameters<typeof useIslamicStatus>[0]['settings'];
+}) {
+  const { rules, status } = useIslamicStatus({
+    settings: props.settings,
+    periods: props.periods,
+    logs: props.logs,
+    pregnancies: props.pregnancies,
+    mode: props.mode,
+    recoveryOutcome: props.outcome,
+    dateISO: props.date,
+  });
+  if (!rules || status.kind === 'none') return null;
+  return <IslamicCard status={status} rules={rules} compact />;
+}

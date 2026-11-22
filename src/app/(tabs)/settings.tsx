@@ -8,8 +8,6 @@ import Slider from '@react-native-community/slider';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
-import { documentDirectory, writeAsStringAsync } from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
 import * as LocalAuthentication from 'expo-local-authentication';
 
 import { Spacing, Typography } from '@/constants/theme';
@@ -28,7 +26,23 @@ import { SegmentedControl } from '@/components/ui/segmented-control';
 import { useSettings } from '@/hooks/use-settings';
 import { usePeriods } from '@/hooks/use-periods';
 import { useDailyLogs } from '@/hooks/use-daily-logs';
+import { useCustomSymptoms } from '@/hooks/use-custom-symptoms';
+import { usePregnancies } from '@/hooks/use-pregnancies';
+import { usePregnancyVisits } from '@/hooks/use-pregnancy-visits';
+import { resolveMode } from '@/utils/pregnancy';
+import { useRouter } from 'expo-router';
 import { requestNotificationPermissions } from '@/services/notifications';
+import {
+  applyRestorePlan,
+  deleteAllData,
+  pickBackupFile,
+  readAllData,
+  shareBackup,
+  shareTextFile,
+} from '@/services/user-data';
+import { parseBackup, planRestore, summarizeBackup } from '@/utils/backup';
+import { buildCsv } from '@/utils/csv';
+import { formatDisplayDate, parseISODate, toISODate } from '@/utils/date';
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -42,12 +56,18 @@ export default function SettingsScreen() {
     updateTheme,
     updateAppLock,
     updateReminders,
+    updateShowStarSign,
+    updateSchool,
   } = useSettings();
+  const router = useRouter();
+  const { pregnancies, removePregnancy } = usePregnancies();
+  const { visits } = usePregnancyVisits();
   const { colors } = useTheme();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const { periods } = usePeriods();
   const { logs } = useDailyLogs();
-  const [exporting, setExporting] = useState(false);
+  const { customLabels } = useCustomSymptoms();
+  const [busy, setBusy] = useState<'backup' | 'restore' | 'csv' | null>(null);
 
   const [localCycleDays, setLocalCycleDays] = useState(
     settings?.fallbackCycleDays ?? 28,
@@ -82,56 +102,195 @@ export default function SettingsScreen() {
     [updatePeriodDuration],
   );
 
-  const handleExport = useCallback(async () => {
+  const mode = resolveMode(pregnancies, periods.map((p) => p.startDate).sort());
+  const activePregnancy = mode.kind === 'pregnant' ? mode.pregnancy : null;
+  // Only a pregnancy with nothing recorded against it yet can be removed
+  // as a mistake; once visits exist it has clearly happened, and ending
+  // it goes through "The pregnancy has ended".
+  const canRemovePregnancy =
+    activePregnancy !== null && !visits.some((v) => v.pregnancyId === activePregnancy.id);
+
+  const handleRemovePregnancy = useCallback(() => {
+    if (!activePregnancy) return;
+    Alert.alert(t('pregnancy.remove_confirm_title'), t('pregnancy.remove_confirm_body'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('pregnancy.remove_confirm'),
+        style: 'destructive',
+        onPress: () => {
+          removePregnancy(activePregnancy.id);
+        },
+      },
+    ]);
+  }, [activePregnancy, removePregnancy, t]);
+
+  const locale = (settings?.language as 'fr' | 'en') ?? 'fr';
+  const calendarType = (settings?.calendarType as 'gregorian' | 'hijri') ?? 'gregorian';
+
+  /** "3 periods and 40 logged days", in the user's language. */
+  const describeCounts = useCallback(
+    (periodCount: number, dayCount: number) => ({
+      periods: t('settings.periods_count', { count: periodCount }),
+      days: t('settings.days_count', { count: dayCount }),
+    }),
+    [t],
+  );
+
+  const shareFile = useCallback(
+    async (fileName: string, contents: string, mimeType: string, title: string) => {
+      try {
+        const outcome = await shareTextFile(fileName, contents, mimeType, title);
+        if (outcome === 'unavailable') {
+          Alert.alert(t('settings.error_title'), t('settings.share_unavailable'));
+        }
+      } catch (e) {
+        console.error(e);
+        Alert.alert(t('settings.error_title'), t('settings.file_error'));
+      }
+    },
+    [t],
+  );
+
+  const handleBackup = useCallback(async () => {
+    setBusy('backup');
     try {
-      setExporting(true);
-      
-      let csv = 'Date,Type,Flow,Symptoms,Mood,Notes\n';
-      
-      // Combine dates
-      const allDates = new Set([
-        ...periods.map(p => p.startDate),
-        ...logs.map(l => l.date)
-      ]);
-      
-      const sortedDates = Array.from(allDates).sort();
-      
-      for (const d of sortedDates) {
-        const isPeriod = periods.some(p => p.startDate === d);
-        const log = logs.find(l => l.date === d);
-        
-        const type = isPeriod ? 'Period Start' : '';
-        const flow = log?.flow || '';
-        const sym = log?.symptoms?.join(';') || '';
-        const mood = log?.mood || '';
-        // Escape quotes and wrap notes in quotes for CSV
-        const notes = log?.notes ? `"${log.notes.replace(/"/g, '""')}"` : '';
-        
-        csv += `${d},${type},${flow},${sym},${mood},${notes}\n`;
+      const outcome = await shareBackup(new Date(), t('settings.backup'));
+      if (outcome === 'unavailable') {
+        Alert.alert(t('settings.error_title'), t('settings.share_unavailable'));
       }
-      if (!documentDirectory) {
-        throw new Error('Document directory inside FileSystem is not available');
-      }
-      
-      const filename = `${documentDirectory}cycle_data_export.csv`;
-      await writeAsStringAsync(filename, csv, { encoding: 'utf8' });
-      
-      if (!(await Sharing.isAvailableAsync())) {
-        Alert.alert('Error', 'Sharing is not available on this device');
-        return;
-      }
-      
-      await Sharing.shareAsync(filename, {
-        mimeType: 'text/csv'
-      });
-      
     } catch (e) {
       console.error(e);
-      Alert.alert('Error', 'Failed to export data');
+      Alert.alert(t('settings.error_title'), t('settings.file_error'));
     } finally {
-      setExporting(false);
+      setBusy(null);
     }
-  }, [periods, logs]);
+  }, [t]);
+
+  const handleExportCsv = useCallback(async () => {
+    setBusy('csv');
+    await shareFile(
+      `lumi-export-${toISODate(new Date())}.csv`,
+      buildCsv(periods, logs, customLabels),
+      'text/csv',
+      t('settings.export_csv'),
+    );
+    setBusy(null);
+  }, [periods, logs, customLabels, shareFile, t]);
+
+  const handleRestore = useCallback(async () => {
+    setBusy('restore');
+    let picked: Awaited<ReturnType<typeof pickBackupFile>>;
+    try {
+      picked = await pickBackupFile();
+    } catch (e) {
+      console.error(e);
+      setBusy(null);
+      Alert.alert(t('settings.error_title'), t('settings.restore_error_invalid'));
+      return;
+    }
+    setBusy(null);
+    if (picked === null) return;
+    if (!picked.ok) {
+      Alert.alert(t('settings.restore'), t('settings.restore_error_invalid'));
+      return;
+    }
+    const photos = picked.photos;
+
+    const parsed = parseBackup(picked.json);
+    if (!parsed.ok) {
+      Alert.alert(t('settings.restore'), t(`settings.restore_error_${parsed.error}`));
+      return;
+    }
+
+    // Planned against what is in the database right now, not what this
+    // screen last rendered.
+    const existing = readAllData();
+    const summary = summarizeBackup(parsed.backup);
+    const plan = planRestore(existing, parsed.backup);
+
+    const contents = [
+      summary.firstDate && summary.lastDate
+        ? t('settings.restore_contents', {
+            ...describeCounts(summary.periodCount, summary.logCount),
+            from: formatDisplayDate(parseISODate(summary.firstDate), locale, calendarType),
+            to: formatDisplayDate(parseISODate(summary.lastDate), locale, calendarType),
+          })
+        : t('settings.restore_contents_empty'),
+      summary.pregnancyCount > 0
+        ? t('settings.restore_pregnancies', { count: summary.pregnancyCount })
+        : null,
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    const nothingToAdd =
+      plan.periodsToAdd.length === 0 &&
+      plan.logsToAdd.length === 0 &&
+      plan.pregnanciesToAdd.length === 0 &&
+      !plan.settingsToApply;
+    if (nothingToAdd) {
+      Alert.alert(t('settings.restore'), `${contents}\n\n${t('settings.restore_nothing')}`);
+      return;
+    }
+
+    const kept = plan.skippedPeriods + plan.skippedLogs + plan.skippedPregnancies;
+    const details = [
+      contents,
+      t('settings.restore_adds', describeCounts(plan.periodsToAdd.length, plan.logsToAdd.length)),
+      plan.pregnanciesToAdd.length > 0
+        ? t('settings.restore_adds_pregnancies', { count: plan.pregnanciesToAdd.length })
+        : null,
+      kept > 0 ? t('settings.restore_kept', { count: kept }) : null,
+      plan.settingsToApply ? t('settings.restore_settings') : null,
+    ]
+      .filter(Boolean)
+      .join('\n\n');
+
+    Alert.alert(t('settings.restore_title'), details, [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('settings.restore_confirm'),
+        onPress: async () => {
+          try {
+            const { missingPhotos } = await applyRestorePlan(plan, photos);
+            Alert.alert(
+              t('settings.restore'),
+              missingPhotos > 0
+                ? `${t('settings.restore_done')} ${t('settings.restore_missing_photos', { count: missingPhotos })}`
+                : t('settings.restore_done'),
+            );
+          } catch (e) {
+            console.error(e);
+            Alert.alert(t('settings.error_title'), t('settings.restore_error_failed'));
+          }
+        },
+      },
+    ]);
+  }, [locale, calendarType, describeCounts, t]);
+
+  const handleDeleteAll = useCallback(() => {
+    Alert.alert(
+      t('settings.delete_confirm_title'),
+      t('settings.delete_confirm_body', describeCounts(periods.length, logs.length)),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('settings.delete_backup_first'), onPress: handleBackup },
+        {
+          text: t('settings.delete_confirm'),
+          style: 'destructive',
+          onPress: () => {
+            try {
+              deleteAllData();
+              Alert.alert(t('settings.delete_title'), t('settings.delete_done'));
+            } catch (e) {
+              console.error(e);
+              Alert.alert(t('settings.error_title'), t('settings.delete_failed'));
+            }
+          },
+        },
+      ],
+    );
+  }, [periods.length, logs.length, describeCounts, handleBackup, t]);
 
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
 
@@ -238,17 +397,145 @@ export default function SettingsScreen() {
         />
       </Card>
 
-      {/* Data Export */}
-      <Card>
-        <Text style={styles.sectionLabel}>{t('day_details.export_data')}</Text>
-        <Button 
-          label={exporting ? t('day_details.saving') : t('day_details.export_data')} 
-          icon="download-outline" 
-          onPress={handleExport}
-          loading={exporting}
+      {/* Symptoms */}
+      <Card style={styles.buttonStack}>
+        <Text style={styles.sectionLabel}>{t('symptoms.section')}</Text>
+        <Button
+          label={t('symptoms.title')}
+          icon="list-outline"
+          onPress={() => router.push('/symptoms')}
           variant="secondary"
           fullWidth
         />
+        <Text style={styles.sliderNote}>{t('symptoms.settings_note')}</Text>
+      </Card>
+
+      {/* Pregnancy */}
+      <Card style={styles.buttonStack}>
+        <Text style={styles.sectionLabel}>{t('pregnancy.settings_section')}</Text>
+        {activePregnancy ? (
+          <>
+            <Button
+              label={t('pregnancy.settings_edit_dates')}
+              icon="calendar-outline"
+              onPress={() => router.push('/pregnancy/setup?edit=1')}
+              variant="secondary"
+              fullWidth
+            />
+            <View style={styles.sliderRow}>
+              <Text style={styles.sliderLabel}>{t('pregnancy.settings_star')}</Text>
+              <Switch
+                value={settings?.showStarSign !== 0}
+                onValueChange={updateShowStarSign}
+                trackColor={{ true: colors.primary, false: colors.border }}
+                thumbColor={colors.surface}
+              />
+            </View>
+            <Button
+              label={t('pregnancy.settings_end')}
+              onPress={() => router.push('/pregnancy/end')}
+              variant="secondary"
+              fullWidth
+            />
+            {canRemovePregnancy ? (
+              <>
+                <Button
+                  label={t('pregnancy.settings_remove')}
+                  onPress={handleRemovePregnancy}
+                  variant="ghost"
+                  fullWidth
+                />
+                <Text style={styles.sliderNote}>{t('pregnancy.settings_remove_note')}</Text>
+              </>
+            ) : null}
+          </>
+        ) : (
+          <Button
+            label={t('pregnancy.settings_start')}
+            icon="heart-outline"
+            onPress={() => router.push('/pregnancy/setup')}
+            variant="secondary"
+            fullWidth
+          />
+        )}
+      </Card>
+
+      <Divider />
+
+      {/* Islamic option */}
+      <Card style={styles.buttonStack}>
+        <Text style={styles.sectionLabel}>{t('islamic.section')}</Text>
+        <View style={styles.sliderRow}>
+          <Text style={[styles.sliderLabel, { flex: 1 }]}>{t('islamic.switch')}</Text>
+          <Switch
+            value={settings?.school === 'maliki'}
+            onValueChange={(on) => updateSchool(on ? 'maliki' : null)}
+            trackColor={{ true: colors.primary, false: colors.border }}
+            thumbColor={colors.surface}
+          />
+        </View>
+        <Text style={styles.sliderNote}>{t('islamic.switch_note')}</Text>
+        {settings?.school ? (
+          <>
+            <Button
+              label={t('islamic.fasts_title')}
+              icon="moon-outline"
+              onPress={() => router.push('/islamic/fasts')}
+              variant="secondary"
+              fullWidth
+            />
+            <Button
+              label={t('islamic.sources_link')}
+              onPress={() => router.push('/islamic/sources')}
+              variant="ghost"
+              fullWidth
+            />
+          </>
+        ) : null}
+      </Card>
+
+      <Divider />
+
+      {/* Your data */}
+      <Card style={styles.buttonStack}>
+        <Text style={styles.sectionLabel}>{t('settings.data_title')}</Text>
+        <Button
+          label={t('summary.title')}
+          icon="medkit-outline"
+          onPress={() => router.push('/summary')}
+          variant="secondary"
+          fullWidth
+        />
+        <Text style={styles.sliderNote}>{t('summary.settings_note')}</Text>
+        <Button
+          label={t('settings.backup')}
+          icon="cloud-upload-outline"
+          onPress={handleBackup}
+          loading={busy === 'backup'}
+          disabled={busy !== null}
+          variant="secondary"
+          fullWidth
+        />
+        <Text style={styles.sliderNote}>{t('settings.backup_note')}</Text>
+        <Button
+          label={t('settings.restore')}
+          icon="cloud-download-outline"
+          onPress={handleRestore}
+          loading={busy === 'restore'}
+          disabled={busy !== null}
+          variant="secondary"
+          fullWidth
+        />
+        <Button
+          label={t('settings.export_csv')}
+          icon="document-text-outline"
+          onPress={handleExportCsv}
+          loading={busy === 'csv'}
+          disabled={busy !== null}
+          variant="ghost"
+          fullWidth
+        />
+        <Text style={styles.sliderNote}>{t('settings.export_csv_note')}</Text>
       </Card>
 
       <Divider />
@@ -320,6 +607,22 @@ export default function SettingsScreen() {
           {t('settings.version', { version: appVersion })}
         </Text>
       </Card>
+      <Divider />
+
+      {/* Delete everything — last on the screen, away from everyday
+          controls, and behind a confirmation that states what goes. */}
+      <Card style={styles.buttonStack}>
+        <Text style={styles.sectionLabel}>{t('settings.delete_title')}</Text>
+        <Text style={styles.sliderNote}>{t('settings.delete_note')}</Text>
+        <Button
+          label={t('settings.delete_title')}
+          icon="trash-outline"
+          onPress={handleDeleteAll}
+          disabled={busy !== null}
+          variant="danger"
+          fullWidth
+        />
+      </Card>
     </ScrollView>
     </View>
   );
@@ -352,6 +655,9 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   sliderCard: {
     gap: Spacing.xs,
+  },
+  buttonStack: {
+    gap: Spacing.sm,
   },
   sliderRow: {
     flexDirection: 'row',

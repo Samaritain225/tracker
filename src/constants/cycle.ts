@@ -40,3 +40,10 @@ export const MAX_INFERRED_PERIOD_DAYS = 15;
  * yesterday" case without merging a period into later, unrelated spotting.
  */
 export const MAX_FLOW_LOG_GAP_DAYS = 1;
+
+/**
+ * Days late after which the Home banner stops saying "a short delay is
+ * normal" and suggests a pregnancy test instead. Around a week late is
+ * when a home test is reliable, and when a delay stops being routine.
+ */
+export const LATE_TEST_SUGGESTION_DAYS = 7;

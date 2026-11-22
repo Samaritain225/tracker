@@ -15,6 +15,7 @@ import {
   RECENT_CYCLE_WINDOW,
 } from '@/constants/cycle';
 import { addDays, daysBetween, parseISODate, toISODate } from './date';
+import type { DateSpan } from './pregnancy';
 
 export type DayType = 'period' | 'ovulation' | 'fertile' | 'predicted' | 'none';
 
@@ -30,8 +31,9 @@ export type DayType = 'period' | 'ovulation' | 'fertile' | 'predicted' | 'none';
 export function computeCycleLength(
   sortedPeriodDates: string[],
   fallback: number,
+  excludedSpans: DateSpan[] = [],
 ): number {
-  const gaps = recentPlausibleGaps(sortedPeriodDates);
+  const gaps = recentPlausibleGaps(sortedPeriodDates, excludedSpans);
   if (gaps === null) {
     return fallback;
   }
@@ -43,8 +45,11 @@ export function computeCycleLength(
  * median) across the same recent gaps computeCycleLength uses. Returns
  * null if fewer than 2 dates are available.
  */
-export function computeCycleVariance(sortedPeriodDates: string[]): number | null {
-  const gaps = recentPlausibleGaps(sortedPeriodDates);
+export function computeCycleVariance(
+  sortedPeriodDates: string[],
+  excludedSpans: DateSpan[] = [],
+): number | null {
+  const gaps = recentPlausibleGaps(sortedPeriodDates, excludedSpans);
   if (gaps === null) {
     return null;
   }
@@ -55,29 +60,72 @@ export function computeCycleVariance(sortedPeriodDates: string[]): number | null
  * Returns the gaps (in days) between the most recent RECENT_CYCLE_WINDOW
  * consecutive period start dates, preferring only "plausible" gaps
  * (within MIN/MAX_PLAUSIBLE_CYCLE_GAP_DAYS) as a guard against a single
- * mistyped date permanently skewing the average. If every recent gap
- * falls outside that range — e.g. a genuinely very irregular cycle — the
- * unfiltered set is used rather than discarding the signal entirely.
- * Returns null when fewer than 2 dates are available.
+ * mistyped date permanently skewing the average.
+ *
+ * When nothing is plausible the fallback is deliberately asymmetric,
+ * because the two ends of the range fail for different reasons:
+ *
+ *   - Implausibly *long* gaps are unusual but real — PCOS,
+ *     perimenopause, post-partum. Someone with genuine 70-day cycles is
+ *     better served by 70 than by the 28-day settings default, so those
+ *     are kept as a last-resort signal.
+ *   - Implausibly *short* gaps are not a cycle at all. They come from a
+ *     period logged twice or a mistyped date, and taking them literally
+ *     produced a "2-day average cycle" that reported itself as
+ *     calculated, put ovulation before its own period, and filled the
+ *     calendar with predictions every other day.
+ *
+ * A gap that contains a pregnancy (one of `excludedSpans`) is dropped
+ * before any of that. It isn't a cycle, and right after a birth it is
+ * often the only recent gap — the "keep long gaps" rule above would then
+ * make the average ten to fourteen months.
+ *
+ * Returns null when there is nothing to go on — fewer than 2 dates, or
+ * only implausibly short gaps. Callers treat null as "use the fallback".
  */
-function recentPlausibleGaps(sortedPeriodDates: string[]): number[] | null {
+function recentPlausibleGaps(
+  sortedPeriodDates: string[],
+  excludedSpans: DateSpan[] = [],
+): number[] | null {
   if (sortedPeriodDates.length < 2) {
     return null;
   }
 
   const allGaps: number[] = [];
   for (let i = 0; i < sortedPeriodDates.length - 1; i++) {
-    const a = parseISODate(sortedPeriodDates[i]);
-    const b = parseISODate(sortedPeriodDates[i + 1]);
-    allGaps.push(daysBetween(a, b));
+    const from = sortedPeriodDates[i];
+    const to = sortedPeriodDates[i + 1];
+    const spansPregnancy = excludedSpans.some((span) => from <= span.end && to > span.start);
+    if (spansPregnancy) continue;
+    allGaps.push(daysBetween(parseISODate(from), parseISODate(to)));
   }
 
   const recent = allGaps.slice(-RECENT_CYCLE_WINDOW);
   const plausible = recent.filter(
     (gap) => gap >= MIN_PLAUSIBLE_CYCLE_GAP_DAYS && gap <= MAX_PLAUSIBLE_CYCLE_GAP_DAYS,
   );
+  if (plausible.length > 0) {
+    return plausible;
+  }
 
-  return plausible.length > 0 ? plausible : recent;
+  const long = recent.filter((gap) => gap > MAX_PLAUSIBLE_CYCLE_GAP_DAYS);
+  return long.length > 0 ? long : null;
+}
+
+/**
+ * True when the logged dates carry enough usable signal for
+ * computeCycleLength to return a real measurement rather than the
+ * settings fallback.
+ *
+ * Exists so the UI can label the number honestly: a bare
+ * `dates.length >= 2` check would call a fallback value "calculated"
+ * whenever two dates existed, however implausible the gap between them.
+ */
+export function hasPlausibleCycleData(
+  sortedPeriodDates: string[],
+  excludedSpans: DateSpan[] = [],
+): boolean {
+  return recentPlausibleGaps(sortedPeriodDates, excludedSpans) !== null;
 }
 
 function median(values: number[]): number {
@@ -208,6 +256,48 @@ export function isPeriodOngoing(
 }
 
 /**
+ * The period a given day belongs to, or null if it belongs to none.
+ *
+ * A confirmed `endDate` is the user's own answer about where the period
+ * stopped, so it bounds the period exactly: a day after it belongs to no
+ * period, even though it may still fall inside the window the flow-log
+ * scan would have been willing to infer. Without that check, opening a
+ * day two weeks after a period whose end was already confirmed offered a
+ * "period ended" switch still bound to it, and flipping that switch
+ * silently rewrote the confirmed answer to the later date — turning a
+ * four-day period into a twelve-day one in every average that reads it.
+ *
+ * Only periods without a confirmed end fall back to
+ * MAX_INFERRED_PERIOD_DAYS, matching computePeriodDuration's ladder.
+ *
+ * Ties go to the most recent start, so a day inside two overlapping
+ * windows attaches to the period that actually began nearer to it.
+ */
+export function findPeriodCovering<T extends PeriodLike>(
+  list: T[],
+  date: string,
+): T | null {
+  let best: T | null = null;
+
+  for (const p of list) {
+    if (p.startDate > date) continue;
+
+    if (p.endDate) {
+      if (date > p.endDate) continue;
+    } else {
+      const elapsed = daysBetween(parseISODate(p.startDate), parseISODate(date));
+      if (elapsed >= MAX_INFERRED_PERIOD_DAYS) continue;
+    }
+
+    if (!best || p.startDate > best.startDate) {
+      best = p;
+    }
+  }
+
+  return best;
+}
+
+/**
  * Average period length across logged periods, as the single source of
  * truth for the Insights figure. Uses the same resolution ladder as the
  * calendar, so confirming an end date actually moves the number the user
@@ -273,6 +363,21 @@ const MAX_PROJECTED_CYCLES = 24;
  * than today's average), followed by projected future cycles spaced by
  * the average cycle length, far enough out to cover roughly a year.
  *
+ * When `todayISO` is given and the next period is overdue, the first
+ * prediction starts today ("any day now") and later ones are spaced from
+ * there. Projecting from the missed due date instead left a predicted
+ * period painted in the past and every later prediction early by however
+ * late this one is.
+ *
+ * `includePredictions` is false while pregnant or recovering from a
+ * pregnancy: logged periods still appear, but nothing is projected.
+ *
+ * A gap to the next period that contains a pregnancy (`excludedSpans`)
+ * is not that cycle's real length either, so it falls back to the
+ * average, like an implausible gap does. Otherwise the cycle before a
+ * short pregnancy measured itself up to the first period after it, and
+ * painted a fertile window into the weeks after the birth.
+ *
  * Returns an empty array when no periods are logged — there's nothing
  * to build a series from.
  */
@@ -281,6 +386,9 @@ export function buildCycleWindows(
   flowLoggedDates: Set<string>,
   averageCycleLength: number,
   defaultPeriodDurationDays: number,
+  todayISO?: string,
+  includePredictions: boolean = true,
+  excludedSpans: DateSpan[] = [],
 ): CycleWindow[] {
   if (sortedPeriods.length === 0) {
     return [];
@@ -298,10 +406,27 @@ export function buildCycleWindows(
     // actually happened, not the current best-guess average. The most
     // recent (still "open") cycle has no next period yet, so it falls
     // back to the average like a prediction would.
+    //
+    // Implausible gaps fall back too, using the same bounds
+    // computeCycleLength applies to the average. Without this, two
+    // starts logged five days apart — a mistyped date, or a period
+    // entered twice — put ovulation at `start + 5 - 14`, i.e. nine days
+    // *before* its own period, dragging the fertile window into the
+    // previous cycle.
     const next = sortedPeriods[i + 1];
-    const cycleLengthForThisWindow = next
+    const realGap = next
       ? daysBetween(parseISODate(period.startDate), parseISODate(next.startDate))
-      : averageCycleLength;
+      : null;
+    const spansPregnancy =
+      next !== undefined &&
+      excludedSpans.some((span) => period.startDate <= span.end && next.startDate > span.start);
+    const cycleLengthForThisWindow =
+      realGap !== null &&
+      !spansPregnancy &&
+      realGap >= MIN_PLAUSIBLE_CYCLE_GAP_DAYS &&
+      realGap <= MAX_PLAUSIBLE_CYCLE_GAP_DAYS
+        ? realGap
+        : averageCycleLength;
 
     const ovulationDate = computeOvulationDay(period.startDate, cycleLengthForThisWindow);
     const fertile = computeFertileWindow(ovulationDate);
@@ -316,15 +441,21 @@ export function buildCycleWindows(
     });
   }
 
+  if (!includePredictions) {
+    return windows;
+  }
+
   const lastPeriod = sortedPeriods[sortedPeriods.length - 1];
   const projectionCount = Math.min(
     MAX_PROJECTED_CYCLES,
     Math.max(1, Math.ceil(PROJECTION_HORIZON_DAYS / Math.max(averageCycleLength, 1))),
   );
 
-  let cursor = parseISODate(lastPeriod.startDate);
+  const dueDate = addDays(parseISODate(lastPeriod.startDate), averageCycleLength);
+  const isOverdue = todayISO !== undefined && toISODate(dueDate) < todayISO;
+  let cursor = isOverdue ? parseISODate(todayISO) : dueDate;
   for (let i = 0; i < projectionCount; i++) {
-    cursor = addDays(cursor, averageCycleLength);
+    if (i > 0) cursor = addDays(cursor, averageCycleLength);
     const startISO = toISODate(cursor);
     const end = toISODate(addDays(cursor, defaultPeriodDurationDays - 1));
     const ovulationDate = computeOvulationDay(startISO, averageCycleLength);
