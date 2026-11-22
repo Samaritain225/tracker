@@ -144,6 +144,19 @@ export const fastsMadeUp = sqliteTable('fasts_made_up', {
   createdAt: integer('created_at').$defaultFn(() => Date.now()),
 });
 
+/**
+ * Symptoms she added herself. A daily log stores `custom:<id>` among its
+ * symptom keys, so a rename shows on every past day. Hidden ones leave
+ * the day sheet but keep their name for the days already logged; rows
+ * are never deleted while she keeps her data.
+ */
+export const customSymptoms = sqliteTable('custom_symptoms', {
+  id: text('id').primaryKey().$defaultFn(generateId),
+  label: text('label').notNull(),
+  hidden: integer('hidden').notNull().default(0),
+  createdAt: integer('created_at').$defaultFn(() => Date.now()),
+});
+
 /** Inferred types for use throughout the app */
 export type Period = typeof periods.$inferSelect;
 export type NewPeriod = typeof periods.$inferInsert;
@@ -157,6 +170,7 @@ export type PregnancyOutcome = 'birth' | 'loss';
 export type VisitKind = 'checkup' | 'ultrasound' | 'blood_test' | 'other';
 export type RamadanOwed = typeof ramadanOwed.$inferSelect;
 export type FastMadeUp = typeof fastsMadeUp.$inferSelect;
+export type CustomSymptom = typeof customSymptoms.$inferSelect;
 export type MomentKind = 'positive_test' | 'kick' | 'due_date_change' | 'photo' | 'note';
 
 /** dailyLogs.flow vocabulary — see schema comment on that column. */

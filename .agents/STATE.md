@@ -1,6 +1,6 @@
 # Where we are
 
-Seven stacked pull requests are open, each waiting on the user to merge in
+Eight stacked pull requests are open, each waiting on the user to merge in
 order. Each merge into `main` builds a production APK.
 
 - Stage 1, pull request 2: the August logic-audit fixes (`fix/logging-flow-audit`).
@@ -10,11 +10,12 @@ order. Each merge into `main` builds a production APK.
 - Stage 4 part 2, pull request 6: the Journey (`feat/pregnancy-journey`).
 - Stage 4 part 3, pull request 7: weekly content and pregnancy Insights (`feat/pregnancy-content`).
 - Stage 5, pull request 8: the Islamic option, Maliki school (`feat/islamic-option`), including its design.
+- Stage 6, pull request 9: custom symptoms, patterns and a summary for a doctor (`feat/extras`).
 
 ## Recently landed
 
-- Stage 4 part 3: week-by-week content with sources, milestones and pregnancy Insights, verified on the emulator in English and French.
-- Stage 5: one switch in Settings; counts of bleeding and purity with Maliki reference limits on Home and the day sheet; a nifas line after a birth; a quote when bleeding is logged in pregnancy; nothing religious after a loss; a "Fasts to make up" screen per Ramadan with a suggestion she can override and made-up fasts she ticks off; a sources screen citing Bewley's Risala by section. Verified on the emulator on 2026-11-22 (English only; the French text has a completeness test). The backup round trip is covered by tests, not run on the emulator.
+- Stage 5: the Maliki Islamic option (counts, reference limits, Ramadan fasts to make up, sources), verified on the emulator on 2026-11-22.
+- Stage 6: custom symptoms (added from the day sheet, renamed or hidden under Settings > My symptoms), a Patterns card in Insights, and a one-page "Summary for a doctor" shared as a PDF through `expo-print`. Built on the builder's picks, as the owner asked, with no design conversation. Verified on the emulator on 2026-11-22 in English; the PDF was opened and read.
 
 ## Decided, still true for later schools
 
@@ -23,7 +24,7 @@ order. Each merge into `main` builds a production APK.
 
 ## Next
 
-1. Stage 6, extras: patterns from her own logs, a doctor summary, custom symptoms. Not designed yet.
+1. All six stages from the original plan are built. Nothing new is planned until the owner picks what comes next.
 
 Lower value: calendar accessibility labels are hardcoded English Gregorian; the
 phase model degenerates at the extremes of its own slider settings; every screen

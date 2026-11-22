@@ -13,6 +13,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
+import { useCustomSymptoms } from '@/hooks/use-custom-symptoms';
 import { Radii, Spacing, Typography } from '@/constants/theme';
 import type { ThemeColors } from '@/constants/theme';
 import type { DailyLog, Pregnancy, PregnancyMoment, PregnancyVisit } from '@/db/schema';
@@ -63,6 +64,7 @@ export function JourneyView({
   onOpenMoment,
 }: Props) {
   const { t } = useTranslation();
+  const { labelOf } = useCustomSymptoms();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -138,6 +140,7 @@ export function JourneyView({
             pregnancy={pregnancy}
             todayWeek={age.weeks}
             formatDate={formatDate}
+            labelOf={labelOf}
             readOnly={readOnly}
             onOpenVisit={onOpenVisit}
             onOpenMoment={onOpenMoment}
@@ -190,6 +193,7 @@ function TimelineRow({
   pregnancy,
   todayWeek,
   formatDate,
+  labelOf,
   readOnly,
   onOpenVisit,
   onOpenMoment,
@@ -199,6 +203,7 @@ function TimelineRow({
   pregnancy: Pregnancy;
   todayWeek: number;
   formatDate: (iso: string) => string;
+  labelOf: (key: string) => string;
   readOnly: boolean;
   onOpenVisit?: (visit: PregnancyVisit) => void;
   onOpenMoment?: (moment: PregnancyMoment) => void;
@@ -280,7 +285,7 @@ function TimelineRow({
         .map((x) =>
           t('journey.symptom_days', {
             count: x.days,
-            name: t(`day_details.symptom_${x.key}`, { defaultValue: x.key }),
+            name: labelOf(x.key),
           }),
         )
         .join(', ');

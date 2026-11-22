@@ -11,12 +11,14 @@
 import { eq, isNotNull } from 'drizzle-orm';
 import * as DocumentPicker from 'expo-document-picker';
 import { Directory, File, Paths } from 'expo-file-system';
+import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
 import { DEFAULT_CYCLE_DAYS, DEFAULT_PERIOD_DURATION_DAYS } from '@/constants/cycle';
 import { db } from '@/db/client';
 import {
   dailyLogs,
+  customSymptoms,
   fastsMadeUp,
   ramadanOwed,
   periods,
@@ -96,6 +98,24 @@ export function shareTextFile(
   return shareFile(fileName, contents, mimeType, dialogTitle);
 }
 
+/**
+ * Prints an HTML page to a PDF and opens the share sheet with it, under
+ * a readable file name rather than the printer's random one. The PDF is
+ * left in the cache, which the system clears.
+ */
+export async function sharePdf(fileName: string, html: string, dialogTitle: string): Promise<ShareOutcome> {
+  if (!(await Sharing.isAvailableAsync())) {
+    return 'unavailable';
+  }
+  const { uri } = await Print.printToFileAsync({ html });
+  const printed = new File(uri);
+  const named = new File(Paths.cache, fileName);
+  if (named.exists) named.delete();
+  printed.move(named);
+  await Sharing.shareAsync(named.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle });
+  return 'shared';
+}
+
 /** Everything a backup or a restore needs to know about the phone. */
 export function readAllData() {
   return {
@@ -107,6 +127,7 @@ export function readAllData() {
     moments: db.select().from(pregnancyMoments).all(),
     ramadanOwed: db.select().from(ramadanOwed).all(),
     fastsMadeUp: db.select().from(fastsMadeUp).all(),
+    customSymptoms: db.select().from(customSymptoms).all(),
   };
 }
 
@@ -123,6 +144,7 @@ export async function shareBackup(now: Date, dialogTitle: string): Promise<Share
     moments: data.moments,
     ramadanOwed: data.ramadanOwed,
     fastsMadeUp: data.fastsMadeUp,
+    customSymptoms: data.customSymptoms,
   });
 
   const photos: BackupPhoto[] = [];
@@ -263,6 +285,17 @@ export async function applyRestorePlan(
         .run();
     }
 
+    for (const c of plan.customSymptomsToAdd) {
+      tx.insert(customSymptoms)
+        .values({
+          id: c.id,
+          label: c.label,
+          hidden: c.hidden ? 1 : 0,
+          ...(c.createdAt !== null ? { createdAt: c.createdAt } : {}),
+        })
+        .run();
+    }
+
     if (plan.settingsToApply) {
       const { showStarSign, ...rest } = plan.settingsToApply;
       tx.update(settings)
@@ -308,6 +341,7 @@ export function deleteAllData(): void {
     // the database while every screen kept showing them, and a restore
     // straight afterwards reported everything as "already on this phone".
     tx.delete(fastsMadeUp).where(isNotNull(fastsMadeUp.id)).run();
+    tx.delete(customSymptoms).where(isNotNull(customSymptoms.id)).run();
     tx.delete(ramadanOwed).where(isNotNull(ramadanOwed.hijriYear)).run();
     tx.delete(pregnancyMoments).where(isNotNull(pregnancyMoments.id)).run();
     tx.delete(pregnancyVisits).where(isNotNull(pregnancyVisits.id)).run();

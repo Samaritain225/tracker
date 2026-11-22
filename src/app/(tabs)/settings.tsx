@@ -26,6 +26,7 @@ import { SegmentedControl } from '@/components/ui/segmented-control';
 import { useSettings } from '@/hooks/use-settings';
 import { usePeriods } from '@/hooks/use-periods';
 import { useDailyLogs } from '@/hooks/use-daily-logs';
+import { useCustomSymptoms } from '@/hooks/use-custom-symptoms';
 import { usePregnancies } from '@/hooks/use-pregnancies';
 import { usePregnancyVisits } from '@/hooks/use-pregnancy-visits';
 import { resolveMode } from '@/utils/pregnancy';
@@ -65,6 +66,7 @@ export default function SettingsScreen() {
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const { periods } = usePeriods();
   const { logs } = useDailyLogs();
+  const { customLabels } = useCustomSymptoms();
   const [busy, setBusy] = useState<'backup' | 'restore' | 'csv' | null>(null);
 
   const [localCycleDays, setLocalCycleDays] = useState(
@@ -168,12 +170,12 @@ export default function SettingsScreen() {
     setBusy('csv');
     await shareFile(
       `lumi-export-${toISODate(new Date())}.csv`,
-      buildCsv(periods, logs),
+      buildCsv(periods, logs, customLabels),
       'text/csv',
       t('settings.export_csv'),
     );
     setBusy(null);
-  }, [periods, logs, shareFile, t]);
+  }, [periods, logs, customLabels, shareFile, t]);
 
   const handleRestore = useCallback(async () => {
     setBusy('restore');
@@ -395,6 +397,19 @@ export default function SettingsScreen() {
         />
       </Card>
 
+      {/* Symptoms */}
+      <Card style={styles.buttonStack}>
+        <Text style={styles.sectionLabel}>{t('symptoms.section')}</Text>
+        <Button
+          label={t('symptoms.title')}
+          icon="list-outline"
+          onPress={() => router.push('/symptoms')}
+          variant="secondary"
+          fullWidth
+        />
+        <Text style={styles.sliderNote}>{t('symptoms.settings_note')}</Text>
+      </Card>
+
       {/* Pregnancy */}
       <Card style={styles.buttonStack}>
         <Text style={styles.sectionLabel}>{t('pregnancy.settings_section')}</Text>
@@ -484,6 +499,14 @@ export default function SettingsScreen() {
       {/* Your data */}
       <Card style={styles.buttonStack}>
         <Text style={styles.sectionLabel}>{t('settings.data_title')}</Text>
+        <Button
+          label={t('summary.title')}
+          icon="medkit-outline"
+          onPress={() => router.push('/summary')}
+          variant="secondary"
+          fullWidth
+        />
+        <Text style={styles.sliderNote}>{t('summary.settings_note')}</Text>
         <Button
           label={t('settings.backup')}
           icon="cloud-upload-outline"
