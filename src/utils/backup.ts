@@ -33,11 +33,15 @@ import type {
   PregnancyMoment,
   PregnancyOutcome,
   PregnancyVisit,
+  CustomSymptom,
+  FastMadeUp,
+  RamadanOwed,
   Settings,
   VisitKind,
 } from '@/db/schema';
 import { findPeriodCovering } from './cycle';
 import { parseISODate, toISODate } from './date';
+import { customIdOf, customKey, isDuplicateLabel } from './symptoms';
 
 export const BACKUP_APP_ID = 'lumi';
 export const BACKUP_FORMAT_VERSION = 2;
@@ -73,7 +77,19 @@ export type BackupSettings = {
   theme: 'system' | 'light' | 'dark';
   /** Version 2. Files without it read as true, the app's default. */
   showStarSign: boolean;
+  /** The Islamic option's school; absent in older files, read as off. */
+  school: 'maliki' | null;
 };
+
+/** A Ramadan where she set the number of fasts owed herself. */
+export type BackupRamadanOwed = { hijriYear: number; owedDays: number };
+export type BackupFastMadeUp = { hijriYear: number; date: string; createdAt: number | null };
+
+/**
+ * A symptom she added herself. `id` is kept as it was on the phone that
+ * wrote the file, because daily logs refer to it as `custom:<id>`.
+ */
+export type BackupCustomSymptom = { id: string; label: string; hidden: boolean; createdAt: number | null };
 
 /**
  * `key` links visits and moments to their pregnancy inside the file. It
@@ -127,6 +143,10 @@ export type Backup = {
   pregnancies: BackupPregnancy[];
   visits: BackupVisit[];
   moments: BackupMoment[];
+  /** Optional additions to version 2; empty in files written before them. */
+  ramadanOwed: BackupRamadanOwed[];
+  fastsMadeUp: BackupFastMadeUp[];
+  customSymptoms: BackupCustomSymptom[];
 };
 
 const FLOW_LEVELS: readonly FlowLevel[] = ['spotting', 'light', 'medium', 'heavy'];
@@ -138,6 +158,9 @@ export type PregnancyData = {
   pregnancies: Pregnancy[];
   visits: PregnancyVisit[];
   moments: PregnancyMoment[];
+  ramadanOwed?: RamadanOwed[];
+  fastsMadeUp?: FastMadeUp[];
+  customSymptoms?: CustomSymptom[];
 };
 
 export function buildBackup(
@@ -178,6 +201,7 @@ export function buildBackup(
           periodDurationDays: currentSettings.periodDurationDays,
           theme: currentSettings.theme as BackupSettings['theme'],
           showStarSign: currentSettings.showStarSign !== 0,
+          school: currentSettings.school === 'maliki' ? 'maliki' : null,
         }
       : null,
     pregnancies: [...pregnancyData.pregnancies]
@@ -217,6 +241,21 @@ export function buildBackup(
         photoFileName: m.photoFileName ?? null,
         createdAt: m.createdAt ?? null,
       })),
+    ramadanOwed: (pregnancyData.ramadanOwed ?? []).map((o) => ({
+      hijriYear: o.hijriYear,
+      owedDays: o.owedDays,
+    })),
+    fastsMadeUp: (pregnancyData.fastsMadeUp ?? []).map((f) => ({
+      hijriYear: f.hijriYear,
+      date: f.date,
+      createdAt: f.createdAt ?? null,
+    })),
+    customSymptoms: (pregnancyData.customSymptoms ?? []).map((c) => ({
+      id: c.id,
+      label: c.label,
+      hidden: c.hidden === 1,
+      createdAt: c.createdAt ?? null,
+    })),
   };
 }
 
@@ -317,6 +356,51 @@ export function parseBackup(text: string): BackupParseResult {
     momentList.push(moment);
   }
 
+  const owedList: BackupRamadanOwed[] = [];
+  for (const item of arrayOrEmpty(raw.ramadanOwed)) {
+    if (
+      !isObject(item) ||
+      !Number.isInteger(item.hijriYear) ||
+      !Number.isInteger(item.owedDays) ||
+      (item.owedDays as number) < 0 ||
+      (item.owedDays as number) > 30
+    ) {
+      return { ok: false, error: 'invalid' };
+    }
+    owedList.push({ hijriYear: item.hijriYear as number, owedDays: item.owedDays as number });
+  }
+
+  const madeUpList: BackupFastMadeUp[] = [];
+  for (const item of arrayOrEmpty(raw.fastsMadeUp)) {
+    if (!isObject(item) || !Number.isInteger(item.hijriYear) || !isISODate(item.date)) {
+      return { ok: false, error: 'invalid' };
+    }
+    madeUpList.push({
+      hijriYear: item.hijriYear as number,
+      date: item.date,
+      createdAt: optionalTimestamp(item.createdAt),
+    });
+  }
+
+  const customList: BackupCustomSymptom[] = [];
+  for (const item of arrayOrEmpty(raw.customSymptoms)) {
+    if (
+      !isObject(item) ||
+      typeof item.id !== 'string' ||
+      item.id.length === 0 ||
+      typeof item.label !== 'string' ||
+      item.label.trim().length === 0
+    ) {
+      return { ok: false, error: 'invalid' };
+    }
+    customList.push({
+      id: item.id,
+      label: item.label.trim(),
+      hidden: item.hidden === true,
+      createdAt: optionalTimestamp(item.createdAt),
+    });
+  }
+
   return {
     ok: true,
     backup: {
@@ -331,6 +415,9 @@ export function parseBackup(text: string): BackupParseResult {
       pregnancies: pregnancyList.sort((a, b) => a.lastPeriodDate.localeCompare(b.lastPeriodDate)),
       visits: visitList,
       moments: momentList,
+      ramadanOwed: owedList,
+      fastsMadeUp: madeUpList,
+      customSymptoms: customList,
     },
   };
 }
@@ -376,6 +463,12 @@ export type RestorePlan = {
   /** Pregnancies overlapping one already on the phone, skipped together
    * with their visits and moments. */
   skippedPregnancies: number;
+  /** Owed counts for years the phone has no number of its own for. */
+  ramadanOwedToAdd: BackupRamadanOwed[];
+  /** Made-up fasts the phone doesn't already have (same year and date). */
+  fastsMadeUpToAdd: BackupFastMadeUp[];
+  /** Her own symptoms the phone has neither by id nor by name. */
+  customSymptomsToAdd: BackupCustomSymptom[];
   /** Settings are only taken from the file on a phone with no data yet. */
   settingsToApply: BackupSettings | null;
 };
@@ -401,9 +494,32 @@ export function planRestore(
     periods: { startDate: string; endDate: string | null }[];
     logs: { date: string }[];
     pregnancies?: { lastPeriodDate: string; endedOn: string | null }[];
+    ramadanOwed?: { hijriYear: number }[];
+    fastsMadeUp?: { hijriYear: number; date: string }[];
+    customSymptoms?: { id: string; label: string }[];
   },
   backup: Backup,
 ): RestorePlan {
+  // Her own symptoms: one the phone already has by id needs nothing; one
+  // the phone has under the same name is merged into the phone's, and
+  // the restored logs are pointed at it, so she never sees two
+  // "Migraine" chips.
+  const existingCustom = existing.customSymptoms ?? [];
+  const customSymptomsToAdd: BackupCustomSymptom[] = [];
+  const customIdMap = new Map<string, string>();
+  for (const symptom of backup.customSymptoms) {
+    if (existingCustom.some((c) => c.id === symptom.id)) continue;
+    const sameName = existingCustom.find((c) => isDuplicateLabel(symptom.label, [c.label]));
+    if (sameName) customIdMap.set(symptom.id, sameName.id);
+    else customSymptomsToAdd.push(symptom);
+  }
+  const remapSymptoms = (keys: string[]) =>
+    keys.map((key) => {
+      const id = customIdOf(key);
+      const mapped = id !== null ? customIdMap.get(id) : undefined;
+      return mapped ? customKey(mapped) : key;
+    });
+
   const existingPregnancies = existing.pregnancies ?? [];
   const periodsToAdd: BackupPeriod[] = [];
   let skippedPeriods = 0;
@@ -422,7 +538,9 @@ export function planRestore(
   }
 
   const loggedDays = new Set(existing.logs.map((l) => l.date));
-  const logsToAdd = backup.dailyLogs.filter((l) => !loggedDays.has(l.date));
+  const logsToAdd = backup.dailyLogs
+    .filter((l) => !loggedDays.has(l.date))
+    .map((l) => (customIdMap.size > 0 ? { ...l, symptoms: remapSymptoms(l.symptoms) } : l));
 
   const pregnanciesToAdd: RestorePregnancy[] = [];
   let skippedPregnancies = 0;
@@ -455,6 +573,13 @@ export function planRestore(
     skippedPeriods,
     skippedLogs: backup.dailyLogs.length - logsToAdd.length,
     skippedPregnancies,
+    ramadanOwedToAdd: backup.ramadanOwed.filter(
+      (o) => !(existing.ramadanOwed ?? []).some((e) => e.hijriYear === o.hijriYear),
+    ),
+    fastsMadeUpToAdd: backup.fastsMadeUp.filter(
+      (f) => !(existing.fastsMadeUp ?? []).some((e) => e.hijriYear === f.hijriYear && e.date === f.date),
+    ),
+    customSymptomsToAdd,
     settingsToApply: phoneIsEmpty ? backup.settings : null,
   };
 }
@@ -652,6 +777,7 @@ function readSettings(value: unknown): BackupSettings | null {
     ),
     theme,
     showStarSign: typeof showStarSign === 'boolean' ? showStarSign : true,
+    school: value.school === 'maliki' ? 'maliki' : null,
   };
 }
 

@@ -52,6 +52,11 @@ export const settings = sqliteTable('settings', {
    * the next one. Null when never dismissed.
    */
   pregnancyPromptDismissedFor: text('pregnancy_prompt_dismissed_for'),
+  /**
+   * The school of Islamic jurisprudence whose reference limits are shown
+   * ('maliki'), or null when the Islamic option is off.
+   */
+  school: text('school'),
 });
 
 export const dailyLogs = sqliteTable('daily_logs', {
@@ -121,6 +126,37 @@ export const pregnancyMoments = sqliteTable('pregnancy_moments', {
   createdAt: integer('created_at').$defaultFn(() => Date.now()),
 });
 
+/**
+ * The number of Ramadan fasts owed for a Hijri year, only where she
+ * changed the app's suggestion. With no row, the suggestion stands.
+ */
+export const ramadanOwed = sqliteTable('ramadan_owed', {
+  hijriYear: integer('hijri_year').primaryKey(),
+  owedDays: integer('owed_days').notNull(),
+  updatedAt: integer('updated_at').$defaultFn(() => Date.now()),
+});
+
+/** One row per Ramadan fast she has made up. */
+export const fastsMadeUp = sqliteTable('fasts_made_up', {
+  id: text('id').primaryKey().$defaultFn(generateId),
+  hijriYear: integer('hijri_year').notNull(),
+  date: text('date').notNull(),
+  createdAt: integer('created_at').$defaultFn(() => Date.now()),
+});
+
+/**
+ * Symptoms she added herself. A daily log stores `custom:<id>` among its
+ * symptom keys, so a rename shows on every past day. Hidden ones leave
+ * the day sheet but keep their name for the days already logged; rows
+ * are never deleted while she keeps her data.
+ */
+export const customSymptoms = sqliteTable('custom_symptoms', {
+  id: text('id').primaryKey().$defaultFn(generateId),
+  label: text('label').notNull(),
+  hidden: integer('hidden').notNull().default(0),
+  createdAt: integer('created_at').$defaultFn(() => Date.now()),
+});
+
 /** Inferred types for use throughout the app */
 export type Period = typeof periods.$inferSelect;
 export type NewPeriod = typeof periods.$inferInsert;
@@ -132,6 +168,9 @@ export type PregnancyVisit = typeof pregnancyVisits.$inferSelect;
 export type PregnancyMoment = typeof pregnancyMoments.$inferSelect;
 export type PregnancyOutcome = 'birth' | 'loss';
 export type VisitKind = 'checkup' | 'ultrasound' | 'blood_test' | 'other';
+export type RamadanOwed = typeof ramadanOwed.$inferSelect;
+export type FastMadeUp = typeof fastsMadeUp.$inferSelect;
+export type CustomSymptom = typeof customSymptoms.$inferSelect;
 export type MomentKind = 'positive_test' | 'kick' | 'due_date_change' | 'photo' | 'note';
 
 /** dailyLogs.flow vocabulary — see schema comment on that column. */
