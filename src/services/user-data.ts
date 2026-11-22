@@ -238,6 +238,7 @@ export async function applyRestorePlan(
           babyName: p.babyName,
           breastfeeding: p.breastfeeding === null ? null : p.breastfeeding ? 1 : 0,
           journeyChoice: p.journeyChoice,
+          cycleLengthDays: p.cycleLengthDays,
           ...(p.startedAt !== null ? { startedAt: p.startedAt } : {}),
           ...(p.createdAt !== null ? { createdAt: p.createdAt } : {}),
         })

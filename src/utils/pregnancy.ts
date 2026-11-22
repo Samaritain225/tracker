@@ -5,12 +5,22 @@
  * Gestational age is counted the medical way: completed weeks plus days
  * ("20 weeks + 3 days"), from the first day of the last period, or from
  * a scan due date minus 280 days when one is entered.
+ *
+ * The 280 days assume a 28-day cycle, ovulating around day 14. For her
+ * usual cycle length, the due date moves by the difference (a 35-day
+ * cycle ovulates about a week later, so the due date is a week later),
+ * the adjustment doctors make to Naegele's rule. A scan date still wins.
  */
 
 import { addDays, daysBetween, parseISODate, toISODate } from './date';
 
 /** Standard length of a pregnancy, from the first day of the last period. */
 export const PREGNANCY_LENGTH_DAYS = 280;
+/** The cycle length the standard 280 days assume. */
+export const STANDARD_CYCLE_DAYS = 28;
+/** Cycle lengths the due date is adjusted for; outside them, no adjustment. */
+export const MIN_DATING_CYCLE_DAYS = 21;
+export const MAX_DATING_CYCLE_DAYS = 45;
 /** Within this many days of a birth, "my period has come back" asks for
  * confirmation: bleeding in the first weeks is usually not a period. */
 export const POSTPARTUM_CONFIRM_DAYS = 42;
@@ -24,23 +34,42 @@ export type PregnancyLike = {
   scanDueDate: string | null;
   endedOn: string | null;
   outcome: string | null;
+  /** Her usual cycle length when it was set up; absent or null means 28. */
+  cycleLengthDays?: number | null;
 };
 
-/** First day of the last period + 280 days. */
-export function calculatedDueDate(lastPeriodDate: string): string {
-  return toISODate(addDays(parseISODate(lastPeriodDate), PREGNANCY_LENGTH_DAYS));
+/** Her cycle length as used for dating: null outside the range it is adjusted for. */
+export function datingCycleLength(cycleLengthDays: number | null | undefined): number | null {
+  if (cycleLengthDays === null || cycleLengthDays === undefined) return null;
+  if (cycleLengthDays < MIN_DATING_CYCLE_DAYS || cycleLengthDays > MAX_DATING_CYCLE_DAYS) return null;
+  return cycleLengthDays;
+}
+
+/** Days the due date moves for her cycle length: +7 for 35-day cycles. */
+export function cycleAdjustmentDays(cycleLengthDays: number | null | undefined): number {
+  const length = datingCycleLength(cycleLengthDays);
+  return length === null ? 0 : length - STANDARD_CYCLE_DAYS;
+}
+
+/** First day of the last period + 280 days, moved for her cycle length. */
+export function calculatedDueDate(lastPeriodDate: string, cycleLengthDays?: number | null): string {
+  return toISODate(
+    addDays(parseISODate(lastPeriodDate), PREGNANCY_LENGTH_DAYS + cycleAdjustmentDays(cycleLengthDays)),
+  );
 }
 
 /** The scan due date when one was entered, otherwise the calculated one. */
-export function effectiveDueDate(p: Pick<PregnancyLike, 'lastPeriodDate' | 'scanDueDate'>): string {
-  return p.scanDueDate ?? calculatedDueDate(p.lastPeriodDate);
+export function effectiveDueDate(
+  p: Pick<PregnancyLike, 'lastPeriodDate' | 'scanDueDate' | 'cycleLengthDays'>,
+): string {
+  return p.scanDueDate ?? calculatedDueDate(p.lastPeriodDate, p.cycleLengthDays);
 }
 
 /**
  * Day 0 of the gestational count. Derived from the effective due date so
  * that a scan which moves the due date moves the week count with it.
  */
-export function gestationStartDate(p: Pick<PregnancyLike, 'lastPeriodDate' | 'scanDueDate'>): string {
+export function gestationStartDate(p: Pick<PregnancyLike, 'lastPeriodDate' | 'scanDueDate' | 'cycleLengthDays'>): string {
   return toISODate(addDays(parseISODate(effectiveDueDate(p)), -PREGNANCY_LENGTH_DAYS));
 }
 
@@ -54,7 +83,7 @@ export type GestationalAge = {
 };
 
 export function gestationalAge(
-  p: Pick<PregnancyLike, 'lastPeriodDate' | 'scanDueDate'>,
+  p: Pick<PregnancyLike, 'lastPeriodDate' | 'scanDueDate' | 'cycleLengthDays'>,
   todayISO: string,
 ): GestationalAge {
   const totalDays = Math.max(
@@ -75,7 +104,7 @@ export function trimesterFor(completedWeeks: number): Trimester {
 
 /** Days until the effective due date; negative once it has passed. */
 export function daysUntilDue(
-  p: Pick<PregnancyLike, 'lastPeriodDate' | 'scanDueDate'>,
+  p: Pick<PregnancyLike, 'lastPeriodDate' | 'scanDueDate' | 'cycleLengthDays'>,
   todayISO: string,
 ): number {
   return daysBetween(parseISODate(todayISO), parseISODate(effectiveDueDate(p)));
@@ -83,7 +112,7 @@ export function daysUntilDue(
 
 /** Progress through 40 weeks, 0 to 1, held at 1 once past the due date. */
 export function pregnancyProgress(
-  p: Pick<PregnancyLike, 'lastPeriodDate' | 'scanDueDate'>,
+  p: Pick<PregnancyLike, 'lastPeriodDate' | 'scanDueDate' | 'cycleLengthDays'>,
   todayISO: string,
 ): number {
   return Math.min(1, gestationalAge(p, todayISO).totalDays / PREGNANCY_LENGTH_DAYS);

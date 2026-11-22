@@ -308,7 +308,11 @@
     "weeks_count_one": "{{count}} semaine",
     "weeks_count_other": "{{count}} semaines",
     "days_count_one": "{{count}} jour",
-    "days_count_other": "{{count}} jours"
+    "days_count_other": "{{count}} jours",
+    "setup_adjusted_later_one": "Ajusté pour vos cycles habituels de {{length}} jours : 1 jour plus tard que le calcul standard. Une date d'échographie le remplace.",
+    "setup_adjusted_later_other": "Ajusté pour vos cycles habituels de {{length}} jours : {{count}} jours plus tard que le calcul standard. Une date d'échographie le remplace.",
+    "setup_adjusted_earlier_one": "Ajusté pour vos cycles habituels de {{length}} jours : 1 jour plus tôt que le calcul standard. Une date d'échographie le remplace.",
+    "setup_adjusted_earlier_other": "Ajusté pour vos cycles habituels de {{length}} jours : {{count}} jours plus tôt que le calcul standard. Une date d'échographie le remplace."
   },
   "journey": {
     "title": "Votre parcours",

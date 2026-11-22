@@ -41,6 +41,7 @@ import type {
 } from '@/db/schema';
 import { findPeriodCovering } from './cycle';
 import { parseISODate, toISODate } from './date';
+import { datingCycleLength } from './pregnancy';
 import { customIdOf, customKey, isDuplicateLabel } from './symptoms';
 
 export const BACKUP_APP_ID = 'lumi';
@@ -106,6 +107,8 @@ export type BackupPregnancy = {
   breastfeeding: boolean | null;
   /** 'kept' | 'deleted' after a loss; absent in older version 2 files. */
   journeyChoice: 'kept' | 'deleted' | null;
+  /** Her cycle length used for its due date; absent in older files, read as none. */
+  cycleLengthDays: number | null;
   startedAt: number | null;
   createdAt: number | null;
 };
@@ -215,6 +218,7 @@ export function buildBackup(
         babyName: p.babyName ?? null,
         breastfeeding: p.breastfeeding === null || p.breastfeeding === undefined ? null : p.breastfeeding === 1,
         journeyChoice: p.journeyChoice === 'kept' || p.journeyChoice === 'deleted' ? p.journeyChoice : null,
+        cycleLengthDays: p.cycleLengthDays ?? null,
         startedAt: p.startedAt ?? null,
         createdAt: p.createdAt ?? null,
       })),
@@ -637,6 +641,12 @@ function readPregnancy(item: unknown): BackupPregnancy | null {
     breastfeeding: typeof item.breastfeeding === 'boolean' ? item.breastfeeding : null,
     journeyChoice:
       item.journeyChoice === 'kept' || item.journeyChoice === 'deleted' ? item.journeyChoice : null,
+    // Anything outside the range the due date is adjusted for reads as
+    // none, so a damaged value can't move her dates.
+    cycleLengthDays:
+      Number.isInteger(item.cycleLengthDays) && datingCycleLength(item.cycleLengthDays as number) !== null
+        ? (item.cycleLengthDays as number)
+        : null,
     startedAt: optionalTimestamp(item.startedAt),
     createdAt: optionalTimestamp(item.createdAt),
   };
