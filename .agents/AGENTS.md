@@ -111,6 +111,14 @@ the Node version pinned in `eas.json`, and an earlier lockfile it disagreed with
 failed every cloud build at "Install dependencies". Check with `npx -y npm@11 ci
 --dry-run` before pushing.
 
+## Branches and builds
+
+Work goes into `develop`, and `main` only changes for a release. Every push to
+`main` starts a production APK build on EAS, and the free plan has a monthly
+build limit, so a pull request into `main` should be a release from `develop`,
+never a single feature. Feature branches start from `develop` and their pull
+requests target it; checks run on those pull requests without building.
+
 ## Conventions
 
 Commits are conventional, scoped, imperative, and describe user-visible impact

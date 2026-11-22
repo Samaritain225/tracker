@@ -1,16 +1,9 @@
 # Where we are
 
-Eight stacked pull requests are open, each waiting on the user to merge in
-order. Each merge into `main` builds a production APK.
-
-- Stage 1, pull request 2: the August logic-audit fixes (`fix/logging-flow-audit`).
-- Stage 2, pull request 3: Expo SDK 55 to 58 and checks before every build (`chore/expo-sdk-58`).
-- Stage 3, pull request 4: foundations (`feat/foundations`).
-- Stage 4 part 1, pull request 5: pregnancy foundation (`feat/pregnancy-foundation`), including the approved design.
-- Stage 4 part 2, pull request 6: the Journey (`feat/pregnancy-journey`).
-- Stage 4 part 3, pull request 7: weekly content and pregnancy Insights (`feat/pregnancy-content`).
-- Stage 5, pull request 8: the Islamic option, Maliki school (`feat/islamic-option`), including its design.
-- Stage 6, pull request 9: custom symptoms, patterns and a summary for a doctor (`feat/extras`).
+All six stages are merged into `main` (2026-11-22). The stack was merged from
+the top down, so only the final merge into `main` started a production build:
+one EAS run, in progress at the time of writing. From now on work goes into
+`develop`, which is the default branch; merging `develop` into `main` is a release.
 
 ## Recently landed
 
