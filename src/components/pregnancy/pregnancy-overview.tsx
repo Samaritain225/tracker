@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Spacing, Typography } from '@/constants/theme';
 import type { ThemeColors } from '@/constants/theme';
-import type { Pregnancy } from '@/db/schema';
+import type { Pregnancy, PregnancyVisit } from '@/db/schema';
 import { useTheme } from '@/providers/theme-provider';
 import { formatDisplayDate, parseISODate } from '@/utils/date';
 import {
@@ -33,7 +33,10 @@ type Props = {
   language: 'en' | 'fr';
   calendarType: 'gregorian' | 'hijri';
   showStarSign: boolean;
+  /** The soonest visit from today on, if one is planned. */
+  nextVisit: PregnancyVisit | null;
   onLogToday: () => void;
+  onOpenVisit: (visit: PregnancyVisit) => void;
 };
 
 export function PregnancyOverview({
@@ -42,7 +45,9 @@ export function PregnancyOverview({
   language,
   calendarType,
   showStarSign,
+  nextVisit,
   onLogToday,
+  onOpenVisit,
 }: Props) {
   const { t } = useTranslation();
   const { colors } = useTheme();
@@ -91,6 +96,19 @@ export function PregnancyOverview({
           </View>
         ) : null}
       </Card>
+
+      {nextVisit ? (
+        <Card style={styles.row} onPress={() => onOpenVisit(nextVisit)}>
+          <View style={styles.half}>
+            <Text style={styles.label}>{t('journey.next_visit')}</Text>
+            <Text style={styles.value}>
+              {t(`journey.visit_${nextVisit.kind}`)}
+              {nextVisit.title ? ` — ${nextVisit.title}` : ''}
+            </Text>
+            <Text style={styles.sub}>{formatDate(nextVisit.date)}</Text>
+          </View>
+        </Card>
+      ) : null}
 
       <Button
         label={t('pregnancy.log_today')}

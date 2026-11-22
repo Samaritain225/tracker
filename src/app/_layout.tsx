@@ -56,6 +56,15 @@ function AppContent() {
           name="pregnancy/end"
           options={{ presentation: 'modal', headerShown: false }}
         />
+        <Stack.Screen
+          name="pregnancy/visit"
+          options={{ presentation: 'modal', headerShown: false }}
+        />
+        <Stack.Screen
+          name="pregnancy/moment"
+          options={{ presentation: 'modal', headerShown: false }}
+        />
+        <Stack.Screen name="pregnancy/journey/[id]" options={{ headerShown: false }} />
         <Stack.Screen 
           name="day/[date]" 
           options={{ 

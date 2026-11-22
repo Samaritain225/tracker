@@ -24,6 +24,7 @@ import { useCycleCalc } from '@/hooks/use-cycle-calc';
 import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { usePeriods } from '@/hooks/use-periods';
 import { usePregnancies } from '@/hooks/use-pregnancies';
+import { usePregnancyVisits } from '@/hooks/use-pregnancy-visits';
 import { useSettings } from '@/hooks/use-settings';
 import { useToday } from '@/hooks/use-today';
 import { addDays, parseISODate, toISODate } from '@/utils/date';
@@ -36,6 +37,7 @@ export default function HomeScreen() {
   const { settings, dismissPregnancyPrompt } = useSettings();
   const { logs } = useDailyLogs();
   const { pregnancies, setBreastfeeding } = usePregnancies();
+  const { visits } = usePregnancyVisits();
   const { colors } = useTheme();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const todayISO = useToday();
@@ -106,7 +108,11 @@ export default function HomeScreen() {
             language={language}
             calendarType={calendarType}
             showStarSign={settings?.showStarSign !== 0}
+            nextVisit={
+              visits.find((v) => v.pregnancyId === mode.pregnancy.id && v.date >= todayISO) ?? null
+            }
             onLogToday={() => handleDayPress(todayISO)}
+            onOpenVisit={(v) => router.push(`/pregnancy/visit?id=${v.id}`)}
           />
         </Animated.View>
       ) : mode.kind === 'recovery' ? (
