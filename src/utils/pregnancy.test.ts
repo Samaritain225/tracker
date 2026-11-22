@@ -4,6 +4,7 @@
 
 import {
   calculatedDueDate,
+  cycleAdjustmentDays,
   daysUntilDue,
   effectiveDueDate,
   findActivePregnancy,
@@ -134,5 +135,29 @@ describe('pregnancySpans and periodsSinceLastPregnancy', () => {
     const ended = pregnancy({ endedOn: '2027-04-08', outcome: 'birth' });
     expect(periodsSinceLastPregnancy([ended], ['2026-07-04', '2027-06-20', '2027-07-25'])).toBe(2);
     expect(periodsSinceLastPregnancy([], ['2026-07-04'])).toBeNull();
+  });
+});
+
+describe('dating adjusted for her cycle length', () => {
+  it('moves the due date by her difference from 28 days', () => {
+    expect(calculatedDueDate('2026-10-13')).toBe('2027-07-20');
+    expect(calculatedDueDate('2026-10-13', 28)).toBe('2027-07-20');
+    expect(calculatedDueDate('2026-10-13', 35)).toBe('2027-07-27');
+    expect(calculatedDueDate('2026-10-13', 24)).toBe('2027-07-16');
+  });
+
+  it('makes no adjustment outside 21 to 45 days, or with no cycle length', () => {
+    expect(cycleAdjustmentDays(null)).toBe(0);
+    expect(cycleAdjustmentDays(undefined)).toBe(0);
+    expect(cycleAdjustmentDays(20)).toBe(0);
+    expect(cycleAdjustmentDays(46)).toBe(0);
+    expect(cycleAdjustmentDays(45)).toBe(17);
+  });
+
+  it('moves the week count with the due date, and a scan still wins', () => {
+    const p = { lastPeriodDate: '2026-10-13', scanDueDate: null, cycleLengthDays: 35 };
+    // 40 days since the last period, a week later ovulation: 4 weeks + 5 days.
+    expect(gestationalAge(p, '2026-11-22')).toMatchObject({ weeks: 4, days: 5 });
+    expect(effectiveDueDate({ ...p, scanDueDate: '2027-07-22' })).toBe('2027-07-22');
   });
 });

@@ -7,6 +7,8 @@ one EAS run, in progress at the time of writing. From now on work goes into
 
 ## Recently landed
 
+- Due dates adjust for her usual cycle length (in `develop`): stored on the pregnancy when it is set up (migration 0008), so existing pregnancies keep their dates until she saves "Edit dates". Tested by unit tests only; not yet run on the emulator.
+
 - Animated launch screen on `feat/splash-animation`, pull request into `develop`: the logo turns, breathes and fades into Home. Checked on the debug build in light, dark and with animations off. Not yet seen on a release build: the Mac's disk was too full to build one.
 
 - Stage 5: the Maliki Islamic option (counts, reference limits, Ramadan fasts to make up, sources), verified on the emulator on 2026-11-22.

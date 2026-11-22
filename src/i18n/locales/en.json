@@ -308,7 +308,11 @@
     "weeks_count_one": "{{count}} week",
     "weeks_count_other": "{{count}} weeks",
     "days_count_one": "{{count}} day",
-    "days_count_other": "{{count}} days"
+    "days_count_other": "{{count}} days",
+    "setup_adjusted_later_one": "Adjusted for your usual {{length}}-day cycles: 1 day later than the standard count. A scan date replaces this.",
+    "setup_adjusted_later_other": "Adjusted for your usual {{length}}-day cycles: {{count}} days later than the standard count. A scan date replaces this.",
+    "setup_adjusted_earlier_one": "Adjusted for your usual {{length}}-day cycles: 1 day earlier than the standard count. A scan date replaces this.",
+    "setup_adjusted_earlier_other": "Adjusted for your usual {{length}}-day cycles: {{count}} days earlier than the standard count. A scan date replaces this."
   },
   "journey": {
     "title": "Your journey",

@@ -1,0 +1,1 @@
+ALTER TABLE `pregnancies` ADD `cycle_length_days` integer;
