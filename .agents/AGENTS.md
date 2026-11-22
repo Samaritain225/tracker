@@ -153,3 +153,14 @@ is the only part of the app under test (`npx jest`). Screens and hooks
 delegate to it so Home and Insights can never disagree — `computeCycleLength` is
 the single source of truth for average cycle length, and `computePeriodDuration`
 for how long a given period ran.
+
+Name every symptom through `labelOf` from `useCustomSymptoms`, or
+`symptomLabel` in `src/utils/symptoms.ts` for pure code, never through
+`t(\`day_details.symptom_${key}\`)` directly. Symptoms she adds herself are
+stored in logs as `custom:<id>`, so a direct translation lookup shows her a raw
+id. Never delete a `custom_symptoms` row either: past logs still point at it,
+which is why "My symptoms" only hides one.
+
+Adding a package with native code (as `expo-print` was in stage 6) means
+rebuilding the debug app with Gradle before testing; the old debug build
+crashes on the missing module rather than failing at bundle time.
