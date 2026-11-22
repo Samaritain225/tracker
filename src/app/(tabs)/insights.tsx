@@ -16,6 +16,7 @@ import { useTheme } from '@/providers/theme-provider';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { PatternsCard } from '@/components/insights/patterns-card';
+import { HowLink } from '@/components/ui/how-link';
 import { useCustomSymptoms } from '@/hooks/use-custom-symptoms';
 import { findPatterns } from '@/utils/patterns';
 import { mostLoggedSymptoms } from '@/utils/symptoms';
@@ -156,6 +157,8 @@ export default function InsightsScreen() {
               />
             </View>
           </Animated.View>
+
+          <HowLink section="cycle" />
 
           <Animated.View entering={FadeInDown.duration(600).delay(300).springify()}>
             <Card style={styles.card}>

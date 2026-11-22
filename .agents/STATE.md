@@ -7,6 +7,8 @@ one EAS run, in progress at the time of writing. From now on work goes into
 
 ## Recently landed
 
+- "How Lumi works it out" screen (in `develop`): each rule in plain words with her own numbers, linked from Settings, Home, Insights, pregnancy setup and the fasts screen. Checked on the emulator in English.
+
 - Due dates adjust for her usual cycle length (in `develop`): stored on the pregnancy when it is set up (migration 0008), so existing pregnancies keep their dates until she saves "Edit dates". Tested by unit tests only; not yet run on the emulator.
 
 - Animated launch screen on `feat/splash-animation`, pull request into `develop`: the logo turns, breathes and fades into Home. Checked on the debug build in light, dark and with animations off. Not yet seen on a release build: the Mac's disk was too full to build one.
@@ -22,6 +24,8 @@ one EAS run, in progress at the time of writing. From now on work goes into
 ## Next
 
 1. All six stages from the original plan are built. Nothing new is planned until the owner picks what comes next.
+
+Open question for the owner: the fertile window is marked from 3 days before ovulation to 4 after (`FERTILE_DAYS_BEFORE_OVULATION`, `FERTILE_DAYS_AFTER_OVULATION`), while the usual medical window is 5 days before to 1 after. Not changed without the owner's decision.
 
 Lower value: calendar accessibility labels are hardcoded English Gregorian; the
 phase model degenerates at the extremes of its own slider settings; every screen

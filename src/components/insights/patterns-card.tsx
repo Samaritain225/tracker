@@ -9,6 +9,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Card } from '@/components/ui/card';
+import { HowLink } from '@/components/ui/how-link';
 import { Spacing, Typography } from '@/constants/theme';
 import type { ThemeColors } from '@/constants/theme';
 import { useTheme } from '@/providers/theme-provider';
@@ -44,6 +45,7 @@ export function PatternsCard({ result, labelOf }: Props) {
         </Text>
       )}
       <Text style={styles.note}>{t('patterns.note')}</Text>
+      <HowLink section="patterns" align="left" />
     </Card>
   );
 }

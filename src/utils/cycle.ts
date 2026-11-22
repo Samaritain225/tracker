@@ -83,7 +83,7 @@ export function computeCycleVariance(
  * Returns null when there is nothing to go on — fewer than 2 dates, or
  * only implausibly short gaps. Callers treat null as "use the fallback".
  */
-function recentPlausibleGaps(
+export function recentPlausibleGaps(
   sortedPeriodDates: string[],
   excludedSpans: DateSpan[] = [],
 ): number[] | null {

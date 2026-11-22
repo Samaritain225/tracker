@@ -20,6 +20,7 @@ import { PhaseBanner } from '@/components/cycle/phase-banner';
 import { PregnancyOverview } from '@/components/pregnancy/pregnancy-overview';
 import { RecoveryOverview } from '@/components/pregnancy/recovery-overview';
 import { LATE_TEST_SUGGESTION_DAYS } from '@/constants/cycle';
+import { HowLink } from '@/components/ui/how-link';
 import { useCycleCalc } from '@/hooks/use-cycle-calc';
 import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { usePeriods } from '@/hooks/use-periods';
@@ -209,6 +210,7 @@ export default function HomeScreen() {
       {mode.kind === 'cycle' && (
         <Animated.View entering={FadeInDown.duration(600).delay(500).springify()}>
           <CalendarLegend />
+          <HowLink section="cycle" />
         </Animated.View>
       )}
     </ScrollView>
