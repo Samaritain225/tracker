@@ -1,27 +1,30 @@
 # Where we are
 
-Three stacked pull requests are open, each waiting on the user to merge in order.
-Each merge into `main` builds a production APK.
+Eight stacked pull requests are open, each waiting on the user to merge in
+order. Each merge into `main` builds a production APK.
 
 - Stage 1, pull request 2: the August logic-audit fixes (`fix/logging-flow-audit`).
 - Stage 2, pull request 3: Expo SDK 55 to 58 and checks before every build (`chore/expo-sdk-58`).
 - Stage 3, pull request 4: foundations (`feat/foundations`).
+- Stage 4 part 1, pull request 5: pregnancy foundation (`feat/pregnancy-foundation`), including the approved design.
+- Stage 4 part 2, pull request 6: the Journey (`feat/pregnancy-journey`).
+- Stage 4 part 3, pull request 7: weekly content and pregnancy Insights (`feat/pregnancy-content`).
+- Stage 5, pull request 8: the Islamic option, Maliki school (`feat/islamic-option`), including its design.
+- Stage 6, pull request 9: custom symptoms, patterns and a summary for a doctor (`feat/extras`).
 
-## Recently landed (stage 3, on feat/foundations)
+## Recently landed
 
-- A late period reads as late: "N days late" on Home, the next prediction starts today, and a test is suggested after a week.
-- Lateness no longer counts the due day itself as a day late.
-- Reminders cover the next three predicted periods instead of one.
-- Backup to a JSON file, restore that only adds, a CSV with end dates, and delete-all.
-- All four verified on the Lumi_API35 emulator on 2026-11-21, including a full backup, delete, restore round trip.
+- Stage 5: the Maliki Islamic option (counts, reference limits, Ramadan fasts to make up, sources), verified on the emulator on 2026-11-22.
+- Stage 6: custom symptoms (added from the day sheet, renamed or hidden under Settings > My symptoms), a Patterns card in Insights, and a one-page "Summary for a doctor" shared as a PDF through `expo-print`. Built on the builder's picks, as the owner asked, with no design conversation. Verified on the emulator on 2026-11-22 in English; the PDF was opened and read.
+
+## Decided, still true for later schools
+
+- No verdicts: the app counts and quotes, never says she may or must pray or fast. No scholar has checked the references; the app says so.
+- A new school is one file in `src/utils/fiqh/` plus its text; screens never hold a number.
 
 ## Next
 
-1. Stage 4, pregnancy mode: write the design for approval before building. Already decided: a late period leads into it; Home becomes a week ring with the baby-size comparison, due date, star sign and next visit; History becomes a Journey timeline tab; week-by-week baby content in French and English; birth leads to a recovery period, then back to cycles, keeping the Journey; a loss takes the quiet path. Mockups are in `.superpowers/brainstorm/` (gitignored).
-2. Stage 5, Islamic option (haid, istihada, nifas): needs the user to choose which schools to support and who checks the rulings.
-3. Stage 6, extras: patterns from her own logs, a doctor summary, custom symptoms.
-
-Pregnancy data needs a new backup format version, and the newer app must still read version 1 files.
+1. All six stages from the original plan are built. Nothing new is planned until the owner picks what comes next.
 
 Lower value: calendar accessibility labels are hardcoded English Gregorian; the
 phase model degenerates at the extremes of its own slider settings; every screen

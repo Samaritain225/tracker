@@ -12,11 +12,13 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { Radii, Spacing, Typography } from '@/constants/theme';
 import type { ThemeColors } from '@/constants/theme';
+import { useCustomSymptoms } from '@/hooks/use-custom-symptoms';
 import { useTheme } from '@/providers/theme-provider';
 import type { DailyLog, Period } from '@/db/schema';
 import { daysBetween, parseISODate } from '@/utils/date';
 
-const SYMPTOM_KEYS = ['cramps', 'headache', 'bloating', 'acne', 'fatigue'];
+/** How many symptoms get a row: her most logged, built-in or her own. */
+const ROWS = 5;
 const CELL_SIZE = 14;
 const CELL_GAP = 2;
 
@@ -28,6 +30,7 @@ type Props = {
 
 export function SymptomHeatmap({ periods, logs, cycleLength }: Props) {
   const { t } = useTranslation();
+  const { labelOf } = useCustomSymptoms();
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -41,9 +44,6 @@ export function SymptomHeatmap({ periods, logs, cycleLength }: Props) {
 
     // For each log, figure out which cycle day it falls on
     const grid: Record<string, number[]> = {};
-    for (const sym of SYMPTOM_KEYS) {
-      grid[sym] = new Array(cycleLength).fill(0);
-    }
 
     let maxCount = 0;
 
@@ -65,15 +65,20 @@ export function SymptomHeatmap({ periods, logs, cycleLength }: Props) {
       if (dayInCycle < 0 || dayInCycle >= cycleLength) continue;
 
       for (const sym of log.symptoms) {
-        if (grid[sym]) {
-          grid[sym][dayInCycle]++;
-          maxCount = Math.max(maxCount, grid[sym][dayInCycle]);
-        }
+        grid[sym] ??= new Array(cycleLength).fill(0);
+        grid[sym][dayInCycle]++;
+        maxCount = Math.max(maxCount, grid[sym][dayInCycle]);
       }
     }
 
     if (maxCount === 0) return null;
-    return { grid, maxCount };
+    // Rows for the symptoms she logs most within her cycles, so one she
+    // added herself gets a row as soon as it is among her top five.
+    const total = (sym: string) => grid[sym].reduce((a, b) => a + b, 0);
+    const keys = Object.keys(grid)
+      .sort((a, b) => total(b) - total(a))
+      .slice(0, ROWS);
+    return { grid, keys, maxCount };
   }, [periods, logs, cycleLength]);
 
   if (!heatmapData) return null;
@@ -89,9 +94,9 @@ export function SymptomHeatmap({ periods, logs, cycleLength }: Props) {
       <View style={styles.gridContainer}>
         <View style={styles.labelColumn}>
           <View style={[styles.cell, { backgroundColor: 'transparent' }]} />
-          {SYMPTOM_KEYS.map((sym) => (
+          {heatmapData.keys.map((sym) => (
             <Text key={sym} style={styles.rowLabel} numberOfLines={1}>
-              {t(`day_details.symptom_${sym}`)}
+              {labelOf(sym)}
             </Text>
           ))}
         </View>
@@ -117,7 +122,7 @@ export function SymptomHeatmap({ periods, logs, cycleLength }: Props) {
           </View>
 
           {/* Symptom rows */}
-          {SYMPTOM_KEYS.map((sym, index) => (
+          {heatmapData.keys.map((sym, index) => (
             <Animated.View 
               key={sym} 
               entering={FadeInDown.duration(400).delay(index * 100).springify()}

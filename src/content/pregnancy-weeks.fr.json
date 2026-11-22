@@ -1,0 +1,208 @@
+{
+  "_comment": "Rédigé avec nos propres mots à partir du guide semaine par semaine du NHS (nhs.uk) et de Service-Public.gouv.fr. Non relu par un professionnel de santé.",
+  "weeks": {
+    "0": {
+      "size": "",
+      "baby": "La grossesse se compte à partir du premier jour des dernières règles : les deux premières semaines précèdent donc la conception. Vers la semaine 2, un ovule peut être fécondé, et vers la semaine 3, un petit amas de cellules s'installe dans la paroi de l'utérus.",
+      "body": "La plupart des personnes ne remarquent encore rien, et un test ne donne pas de résultat avant le moment où les règles auraient dû arriver."
+    },
+    "4": {
+      "size": "une graine de pavot",
+      "baby": "L'embryon mesure environ 2 mm. Une petite poche de liquide l'entoure, et une vésicule le nourrit jusqu'à ce que le placenta prenne le relais.",
+      "body": "Un retard de règles est souvent le premier signe. Fatigue, seins sensibles, nausées ou envies d'uriner plus fréquentes sont courants, et certaines personnes remarquent de légers saignements."
+    },
+    "5": {
+      "size": "une graine de sésame",
+      "baby": "Le cerveau, la moelle épinière et le système nerveux se mettent en place, et le visage commence à se former. Le cœur, tout petit, se forme et peut commencer à battre vers cette période.",
+      "body": "La fatigue, des seins douloureux et des envies d'uriner plus fréquentes sont courants cette semaine."
+    },
+    "6": {
+      "size": "un petit pois",
+      "baby": "De petits bourgeons apparaissent : ils deviendront les bras et les jambes. Le foie, le cerveau et les muscles se développent, et de petits creux marquent l'emplacement des oreilles.",
+      "body": "Les nausées peuvent survenir à tout moment de la journée, et l'odorat devient souvent plus sensible."
+    },
+    "7": {
+      "size": "un grain de raisin",
+      "baby": "Le cerveau grandit plus vite que tout le reste, ce qui donne à l'embryon un grand front. Les paupières, les narines et les oreilles commencent à se dessiner, et les bourgeons des bras s'allongent.",
+      "body": "Le volume de sang augmente dans votre corps, ce qui peut donner soif. Ballonnements et fatigue sont courants."
+    },
+    "8": {
+      "size": "une cerise",
+      "baby": "Le placenta s'ancre dans la paroi de l'utérus, et la tête commence à se redresser. À partir de maintenant, on parle de fœtus.",
+      "body": "Ballonnements, seins un peu plus gros et sautes d'humeur sont courants. L'utérus qui grandit peut appuyer sur la vessie."
+    },
+    "9": {
+      "size": "une fraise",
+      "baby": "Le visage devient plus reconnaissable, avec des paupières, une bouche et une langue. Les mains et les pieds se forment, et les principaux organes et les os se développent.",
+      "body": "Les hormones de grossesse sont proches de leur pic, ce qui peut donner un sentiment de malaise ou rendre plus émotive que d'habitude."
+    },
+    "10": {
+      "size": "un abricot",
+      "baby": "Le bébé fait de petits mouvements saccadés, visibles à l'échographie mais bien trop petits pour être sentis. Les oreilles, la lèvre supérieure et les bourgeons des premières dents se forment.",
+      "body": "Ballonnements, brûlures d'estomac et digestion difficile sont courants, et beaucoup de personnes se sentent très fatiguées."
+    },
+    "11": {
+      "size": "une châtaigne",
+      "baby": "Les doigts et les orteils se séparent, et de minuscules ongles commencent à pousser. Le corps grandit vite.",
+      "body": "Les muscles et ligaments qui s'étirent peuvent causer des douleurs autour du ventre, et l'afflux de sang peut donner chaud ou des vertiges."
+    },
+    "12": {
+      "size": "un citron vert",
+      "baby": "Le squelette passe du tissu mou à l'os, et les organes et les muscles sont en place. Les battements du cœur peuvent être entendus à l'échographie.",
+      "body": "Les nausées commencent souvent à diminuer et l'appétit revient, à mesure que le placenta prend le relais des premières hormones."
+    },
+    "13": {
+      "size": "un citron",
+      "baby": "Le bébé mesure environ 7,4 cm, et ses mouvements deviennent plus volontaires. Il peut sucer son pouce, ce qui entraîne le réflexe dont il aura besoin pour téter.",
+      "body": "Un petit ventre peut commencer à se voir. Les envies d'uriner diminuent souvent quand l'utérus remonte hors du bassin."
+    },
+    "14": {
+      "size": "un kiwi",
+      "baby": "La tête est plus ronde et mieux proportionnée au corps. Le bébé rejette maintenant de petites quantités d'urine dans le liquide qui l'entoure.",
+      "body": "Beaucoup de personnes sentent leur énergie revenir vers cette période."
+    },
+    "15": {
+      "size": "une pomme",
+      "baby": "Un fin duvet recouvre le corps, et les sourcils et les cils se forment. L'audition commence : le bébé peut percevoir votre voix, votre cœur et les bruits de votre digestion.",
+      "body": "Une peau qui démange et un peu plus de pertes blanches ou transparentes sont courantes."
+    },
+    "16": {
+      "size": "un avocat",
+      "baby": "Le visage fait ses premières expressions, pas encore volontaires. Les bras et les jambes bougent, et les mains peuvent se fermer en poing.",
+      "body": "La constipation est fréquente pendant la grossesse."
+    },
+    "17": {
+      "size": "une poire",
+      "baby": "Les yeux peuvent bouger derrière les paupières fermées, et le bébé réagit aux bruits forts. Les ongles poussent et les empreintes digitales se forment.",
+      "body": "La taille s'efface à mesure que l'utérus monte. Les premiers mouvements se sentent souvent entre la 18e et la 24e semaine, comme des bulles ou des frôlements."
+    },
+    "18": {
+      "size": "un poivron",
+      "baby": "L'audition, le toucher, la déglutition et la succion se développent, et le bébé gigote beaucoup. Dans de nombreux pays, une échographie détaillée est proposée vers cette période.",
+      "body": "La tension peut baisser un peu : se lever doucement peut aider. Une ligne foncée au milieu du ventre est courante."
+    },
+    "19": {
+      "size": "une tomate",
+      "baby": "Le bébé prend du poids, et les dents définitives se forment derrière les dents de lait.",
+      "body": "Les hormones de grossesse assouplissent les ligaments, si bien que certains mouvements peuvent être moins confortables qu'avant."
+    },
+    "20": {
+      "size": "une banane",
+      "baby": "À partir de maintenant, le bébé se mesure de la tête aux talons : environ 25,6 cm. Un enduit gras protège sa peau, et il est un peu plus actif chaque jour.",
+      "body": "Vous pouvez commencer à sentir des bulles ou des frôlements. Les crampes dans les jambes la nuit sont courantes.",
+      "milestone": "halfway"
+    },
+    "21": {
+      "size": "une carotte",
+      "baby": "Le bébé entend les sons et les voix venant de l'extérieur, et s'entraîne à téter et à respirer. Des rythmes de sommeil et d'éveil s'installent.",
+      "body": "Votre centre de gravité change, vous pouvez donc vous sentir moins stable. Mal de dos et fatigue sont courants."
+    },
+    "22": {
+      "size": "une patate douce",
+      "baby": "Les poumons se développent, et le bébé avale de petites quantités du liquide qui l'entoure. Les papilles gustatives se forment.",
+      "body": "Des vergetures peuvent apparaître sur le ventre, les cuisses ou les seins."
+    },
+    "23": {
+      "size": "une mangue",
+      "baby": "Les membres sont maintenant proportionnés au corps. Dans les semaines qui viennent, les coups de pied deviendront plus forts et pourront se voir de l'extérieur.",
+      "body": "Vos côtes peuvent être douloureuses à mesure que la cage thoracique s'élargit, et vous pouvez être un peu essoufflée."
+    },
+    "24": {
+      "size": "un épi de maïs",
+      "baby": "Le bébé a des proportions normales, mais il est encore bien plus petit et plus mince qu'à la naissance.",
+      "body": "Des douleurs autour des côtes, du dos et des hanches sont courantes, car les ligaments s'assouplissent."
+    },
+    "25": {
+      "size": "une courgette",
+      "baby": "Le bébé est actif, peut sursauter aux bruits forts et avoir le hoquet.",
+      "body": "Un léger gonflement du visage, des mains ou des pieds est courant ; parlez-en à votre sage-femme, qui pourra vérifier votre tension."
+    },
+    "26": {
+      "size": "un concombre",
+      "baby": "Les yeux s'ouvrent pour la première fois, et le bébé apprend à cligner des paupières.",
+      "body": "Crampes nocturnes, fatigue et petits oublis sont courants."
+    },
+    "27": {
+      "size": "un chou-fleur",
+      "baby": "Les poumons mûrissent, et le bébé s'arrondit en prenant de la graisse.",
+      "body": "Ballonnements, constipation et ronflements sont courants à ce stade."
+    },
+    "28": {
+      "size": "une aubergine",
+      "baby": "Le bébé mesure environ 37,6 cm de la tête aux talons, et son cœur bat autour de 140 fois par minute.",
+      "body": "Brûlures d'estomac, mal de dos et chevilles gonflées sont courants. Un gonflement du visage, des mains ou des pieds mérite d'être vérifié par votre sage-femme."
+    },
+    "29": {
+      "size": "une noix de coco",
+      "baby": "Les organes mûrissent et le bébé continue à prendre de la graisse. L'enduit gras sur sa peau commence à disparaître.",
+      "body": "Le bébé remonte vers vos poumons, ce qui peut essouffler, et les envies d'uriner la nuit sont plus fréquentes."
+    },
+    "30": {
+      "size": "un chou",
+      "baby": "Les yeux peuvent maintenant faire la mise au point. Après la naissance, le bébé verra le mieux les visages à environ 20 à 25 cm.",
+      "body": "Le sommeil peut être haché, et les rêves très vifs sont courants."
+    },
+    "31": {
+      "size": "une noix de coco",
+      "baby": "Le bébé est plus potelé et moins fripé, très actif, et commence à reconnaître les voix de l'extérieur.",
+      "body": "Des contractions d'entraînement, des durcissements indolores de 20 à 30 secondes, sont courantes à partir de maintenant."
+    },
+    "32": {
+      "size": "un melon",
+      "baby": "Le bébé doit encore prendre environ un kilo de graisse dans les semaines qui viennent ; il a probablement la tête en bas, ou l'aura vers la 36e semaine.",
+      "body": "Marcher peut devenir plus difficile. Les mouvements doivent garder leur rythme habituel jusqu'à la naissance ; s'ils diminuent, contactez votre sage-femme ou la maternité sans attendre."
+    },
+    "33": {
+      "size": "un ananas",
+      "baby": "Le cerveau et le système nerveux sont entièrement développés. Les os du crâne restent souples et séparés, ce qui aide à la naissance.",
+      "body": "Une sensation de lourdeur dans le bassin peut signifier que le bébé s'est mis tête en bas. Seul environ 1 bébé sur 20 naît le jour prévu."
+    },
+    "34": {
+      "size": "un melon cantaloup",
+      "baby": "Le bébé est recroquevillé, les genoux contre la poitrine, et peut commencer à descendre dans le bassin.",
+      "body": "Vos seins peuvent laisser couler un peu de premier lait jaune, le colostrum. Certains inconforts peuvent s'atténuer quand le bébé descend."
+    },
+    "35": {
+      "size": "un melon miel",
+      "baby": "Le bébé s'arrondit, ce qui l'aidera à garder sa chaleur après la naissance. Ses mouvements doivent rester aussi forts et réguliers qu'avant.",
+      "body": "Les coups de pied peuvent rendre les côtes douloureuses."
+    },
+    "36": {
+      "size": "une laitue",
+      "baby": "Les poumons sont probablement assez mûrs pour respirer seuls, et le bébé sait téter et digérer le lait.",
+      "body": "Une petite fuite d'urine en riant ou en toussant est courante, car le périnée se relâche."
+    },
+    "37": {
+      "size": "un poireau",
+      "baby": "Le bébé s'entraîne aux expressions du visage, et ses moments actifs et calmes se distinguent mieux. Environ 95 bébés sur 100 ont la tête en bas à ce stade.",
+      "body": "Plus de pertes, des contractions d'entraînement et une envie de ranger et de nettoyer sont courantes.",
+      "milestone": "full_term"
+    },
+    "38": {
+      "size": "une tige de rhubarbe",
+      "baby": "Le fin duvet a presque disparu, et l'intestin stocke les premières selles du bébé, le méconium.",
+      "body": "L'attente peut paraître longue, c'est normal. Votre sage-femme continue de vérifier votre tension et vos urines."
+    },
+    "39": {
+      "size": "une pastèque",
+      "baby": "La peau est plus ferme, et l'enduit gras peut encore être là à la naissance, ou avoir disparu.",
+      "body": "Mal de dos, pression dans le bas du ventre et regains d'énergie sont courants. Un bouchon de mucus peut se détacher quand le corps se prépare."
+    },
+    "40": {
+      "size": "une citrouille",
+      "baby": "Le bébé a peu de place mais doit garder son rythme habituel de mouvements.",
+      "body": "Les contractions d'entraînement sont fréquentes, et des douleurs comme pendant les règles ou un mal de dos peuvent annoncer le début du travail.",
+      "milestone": "due_date"
+    },
+    "41": {
+      "size": "une citrouille",
+      "baby": "La plupart des bébés pèsent environ 3 à 4 kg et ont fini leur croissance rapide. La peau peut paraître sèche et peler une fois l'enduit gras disparu.",
+      "body": "Dépasser le terme d'une semaine est fréquent. À partir de 41 semaines, l'équipe qui vous suit vous parlera en général d'une surveillance renforcée ou d'aider le travail à démarrer."
+    }
+  },
+  "milestones": {
+    "halfway": "La moitié du chemin",
+    "full_term": "À terme",
+    "due_date": "Terme prévu"
+  }
+}

@@ -39,3 +39,27 @@ export function computePeriodReminderDates(
 
   return dates;
 }
+
+/** How many upcoming visits get a reminder at once. */
+export const VISIT_REMINDER_COUNT = 10;
+
+/**
+ * When to remind the user about upcoming pregnancy visits: 09:00 local
+ * time the day before each one, skipping any moment already passed,
+ * soonest first.
+ */
+export function computeVisitReminderDates(
+  visitDates: string[],
+  now: Date,
+  count: number = VISIT_REMINDER_COUNT,
+): { visitDate: string; remindAt: Date }[] {
+  const result: { visitDate: string; remindAt: Date }[] = [];
+  for (const visitDate of [...visitDates].sort()) {
+    const remindAt = addDays(parseISODate(visitDate), -1);
+    remindAt.setHours(PERIOD_REMINDER_HOUR, 0, 0, 0);
+    if (remindAt <= now) continue;
+    result.push({ visitDate, remindAt });
+    if (result.length === count) break;
+  }
+  return result;
+}

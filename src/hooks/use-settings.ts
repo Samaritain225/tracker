@@ -26,6 +26,14 @@ type UseSettingsReturn = {
   updateTheme: (theme: 'system' | 'light' | 'dark') => Promise<void>;
   updateAppLock: (enabled: boolean) => Promise<void>;
   updateReminders: (enabled: boolean) => Promise<void>;
+  updateShowStarSign: (show: boolean) => Promise<void>;
+  /** Hides the late-period pregnancy prompt for the cycle that started
+   * on `periodStart`; it comes back once a newer period is logged. */
+  dismissPregnancyPrompt: (periodStart: string) => Promise<void>;
+  /** Turns the Islamic option on for a school, or off with null. Turning
+   * it on also turns the star sign off and switches to the Hijri
+   * calendar; she can change both back. */
+  updateSchool: (school: 'maliki' | null) => Promise<void>;
 };
 
 export function useSettings(): UseSettingsReturn {
@@ -113,6 +121,39 @@ export function useSettings(): UseSettingsReturn {
     }
   }, []);
 
+  const updateShowStarSign = useCallback(async (show: boolean) => {
+    try {
+      await db
+        .update(settings)
+        .set({ showStarSign: show ? 1 : 0 })
+        .where(eq(settings.id, SETTINGS_ID));
+    } catch (e) {
+      console.error('Failed to update star sign setting:', e);
+    }
+  }, []);
+
+  const dismissPregnancyPrompt = useCallback(async (periodStart: string) => {
+    try {
+      await db
+        .update(settings)
+        .set({ pregnancyPromptDismissedFor: periodStart })
+        .where(eq(settings.id, SETTINGS_ID));
+    } catch (e) {
+      console.error('Failed to dismiss pregnancy prompt:', e);
+    }
+  }, []);
+
+  const updateSchool = useCallback(async (school: 'maliki' | null) => {
+    try {
+      await db
+        .update(settings)
+        .set(school ? { school, showStarSign: 0, calendarType: 'hijri' } : { school: null })
+        .where(eq(settings.id, SETTINGS_ID));
+    } catch (e) {
+      console.error('Failed to update school:', e);
+    }
+  }, []);
+
   return {
     settings: currentSettings,
     isLoading: isQueryLoading(updatedAt, error),
@@ -123,5 +164,8 @@ export function useSettings(): UseSettingsReturn {
     updateTheme,
     updateAppLock,
     updateReminders,
+    updateShowStarSign,
+    dismissPregnancyPrompt,
+    updateSchool,
   };
 }

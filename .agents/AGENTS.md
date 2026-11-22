@@ -45,6 +45,20 @@ is a real upgrade (`firstInstallTime` stays put in `dumpsys package`). Seed data
 by copying `files/SQLite/cycle.db` out with `adb exec-out run-as
 com.doumbia225.tracker cat`, editing it with `sqlite3`, and copying it back.
 
+To edit the database on the emulator, stop the app first, copy out both
+`cycle.db` and `cycle.db-wal`, run `PRAGMA wal_checkpoint(TRUNCATE)` before the
+edit, and delete `cycle.db-wal` and `cycle.db-shm` on the device when copying
+it back. Recent writes live in the WAL file; skip any step and the edit is
+either missing data or silently overwritten on the next launch.
+
+Expo's floating dev-tools button sits over the top right of every debug screen
+(around 970,245 on Lumi_API35), so a tap on a switch or button there opens the
+dev menu instead. Close the menu with its X and scroll the control lower before
+tapping it, or the test silently checks nothing.
+
+Do not run `npx expo lint`: the project has no ESLint, so it rewrites
+`package.json` and `package-lock.json` and adds `eslint.config.js`, then fails.
+
 Maven Central keeps cutting off the download of `react-android-<version>-debug.aar`
 (about 290 MB), and Gradle fails with "Connection reset" however many retries it
 is given. Fetch it with `curl -C - --retry 5` instead, check it against the
@@ -116,8 +130,38 @@ the rows vanish from the database while every screen keeps showing them. Add an
 always-true condition such as `where(isNotNull(table.id))`; `deleteAllData` in
 `src/services/user-data.ts` does this.
 
+A form whose starting values come from a live query must wait for that query
+before it mounts: render a loading screen, then the form, as `day/[date].tsx`
+and `pregnancy/setup.tsx` do. `useState` keeps whatever it saw on the first
+render, and on the first render every live query is still an empty list — the
+pregnancy setup prefilled "28 days ago" instead of the latest period that way.
+
+SQLite foreign keys are off in expo-sqlite, so the `ON DELETE CASCADE` on
+`pregnancy_visits` and `pregnancy_moments` does nothing. Code that deletes a
+pregnancy must delete its visits and moments itself, as `removePregnancy` and
+`deleteAllData` do; otherwise they survive as orphans and reappear in backups.
+
+The app's mode (cycle, pregnant, recovery) is derived from data by
+`resolveMode` in `src/utils/pregnancy.ts` and never stored. Recovery covers a
+loss as well as a birth: until a period is logged after the pregnancy ended, the
+latest period on record is from before it, and treating that as a normal cycle
+shows "90 days late" and the "I'm pregnant" prompt to someone who has just had a
+loss.
+
 Cycle maths lives in `src/utils/` as pure functions with no database access, and
 is the only part of the app under test (`npx jest`). Screens and hooks
 delegate to it so Home and Insights can never disagree — `computeCycleLength` is
 the single source of truth for average cycle length, and `computePeriodDuration`
 for how long a given period ran.
+
+Name every symptom through `labelOf` from `useCustomSymptoms`, or
+`symptomLabel` in `src/utils/symptoms.ts` for pure code, never through
+`t(\`day_details.symptom_${key}\`)` directly. Symptoms she adds herself are
+stored in logs as `custom:<id>`, so a direct translation lookup shows her a raw
+id. Never delete a `custom_symptoms` row either: past logs still point at it,
+which is why "My symptoms" only hides one.
+
+Adding a package with native code (as `expo-print` was in stage 6) means
+rebuilding the debug app with Gradle before testing. Metro bundles the
+JavaScript fine either way, but the old debug build has no native half of the
+module, so the screen that uses it fails only when it runs.

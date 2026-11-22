@@ -11,6 +11,11 @@
  *    nothing, rather than guessing at fields it doesn't know.
  *  - Unknown extra fields are ignored, so adding optional data does not
  *    need a new version.
+ *
+ * Version 2 adds pregnancies, their visits and moments, and the
+ * star-sign setting. A version 1 file reads as having none of them.
+ * Version 2 files travel inside a zip with the Journey photos (see
+ * backup-archive.ts); the JSON itself is the same either way.
  */
 
 import {
@@ -19,12 +24,27 @@ import {
   MIN_CYCLE_DAYS,
   MIN_PERIOD_DURATION_DAYS,
 } from '@/constants/cycle';
-import type { DailyLog, FlowLevel, Period, Settings } from '@/db/schema';
+import type {
+  DailyLog,
+  FlowLevel,
+  MomentKind,
+  Period,
+  Pregnancy,
+  PregnancyMoment,
+  PregnancyOutcome,
+  PregnancyVisit,
+  CustomSymptom,
+  FastMadeUp,
+  RamadanOwed,
+  Settings,
+  VisitKind,
+} from '@/db/schema';
 import { findPeriodCovering } from './cycle';
 import { parseISODate, toISODate } from './date';
+import { customIdOf, customKey, isDuplicateLabel } from './symptoms';
 
 export const BACKUP_APP_ID = 'lumi';
-export const BACKUP_FORMAT_VERSION = 1;
+export const BACKUP_FORMAT_VERSION = 2;
 
 export type BackupPeriod = {
   startDate: string;
@@ -55,6 +75,61 @@ export type BackupSettings = {
   fallbackCycleDays: number;
   periodDurationDays: number;
   theme: 'system' | 'light' | 'dark';
+  /** Version 2. Files without it read as true, the app's default. */
+  showStarSign: boolean;
+  /** The Islamic option's school; absent in older files, read as off. */
+  school: 'maliki' | null;
+};
+
+/** A Ramadan where she set the number of fasts owed herself. */
+export type BackupRamadanOwed = { hijriYear: number; owedDays: number };
+export type BackupFastMadeUp = { hijriYear: number; date: string; createdAt: number | null };
+
+/**
+ * A symptom she added herself. `id` is kept as it was on the phone that
+ * wrote the file, because daily logs refer to it as `custom:<id>`.
+ */
+export type BackupCustomSymptom = { id: string; label: string; hidden: boolean; createdAt: number | null };
+
+/**
+ * `key` links visits and moments to their pregnancy inside the file. It
+ * is the id on the phone that wrote it; a restore gives every pregnancy
+ * a fresh id and re-links by key.
+ */
+export type BackupPregnancy = {
+  key: string;
+  lastPeriodDate: string;
+  scanDueDate: string | null;
+  endedOn: string | null;
+  outcome: PregnancyOutcome | null;
+  babyName: string | null;
+  breastfeeding: boolean | null;
+  /** 'kept' | 'deleted' after a loss; absent in older version 2 files. */
+  journeyChoice: 'kept' | 'deleted' | null;
+  startedAt: number | null;
+  createdAt: number | null;
+};
+
+export type BackupVisit = {
+  pregnancyKey: string;
+  date: string;
+  kind: VisitKind;
+  title: string | null;
+  weightKg: number | null;
+  systolic: number | null;
+  diastolic: number | null;
+  notes: string | null;
+  createdAt: number | null;
+};
+
+export type BackupMoment = {
+  pregnancyKey: string;
+  date: string;
+  kind: MomentKind;
+  text: string | null;
+  /** Name of the photo inside the archive's photos/ folder. */
+  photoFileName: string | null;
+  createdAt: number | null;
 };
 
 export type Backup = {
@@ -65,15 +140,35 @@ export type Backup = {
   periods: BackupPeriod[];
   dailyLogs: BackupDailyLog[];
   settings: BackupSettings | null;
+  pregnancies: BackupPregnancy[];
+  visits: BackupVisit[];
+  moments: BackupMoment[];
+  /** Optional additions to version 2; empty in files written before them. */
+  ramadanOwed: BackupRamadanOwed[];
+  fastsMadeUp: BackupFastMadeUp[];
+  customSymptoms: BackupCustomSymptom[];
 };
 
 const FLOW_LEVELS: readonly FlowLevel[] = ['spotting', 'light', 'medium', 'heavy'];
+const OUTCOMES: readonly PregnancyOutcome[] = ['birth', 'loss'];
+const VISIT_KINDS: readonly VisitKind[] = ['checkup', 'ultrasound', 'blood_test', 'other'];
+const MOMENT_KINDS: readonly MomentKind[] = ['positive_test', 'kick', 'due_date_change', 'photo', 'note'];
+
+export type PregnancyData = {
+  pregnancies: Pregnancy[];
+  visits: PregnancyVisit[];
+  moments: PregnancyMoment[];
+  ramadanOwed?: RamadanOwed[];
+  fastsMadeUp?: FastMadeUp[];
+  customSymptoms?: CustomSymptom[];
+};
 
 export function buildBackup(
   periodList: Period[],
   logList: DailyLog[],
   currentSettings: Settings | null,
   now: Date,
+  pregnancyData: PregnancyData = { pregnancies: [], visits: [], moments: [] },
 ): Backup {
   return {
     app: BACKUP_APP_ID,
@@ -105,8 +200,62 @@ export function buildBackup(
           fallbackCycleDays: currentSettings.fallbackCycleDays,
           periodDurationDays: currentSettings.periodDurationDays,
           theme: currentSettings.theme as BackupSettings['theme'],
+          showStarSign: currentSettings.showStarSign !== 0,
+          school: currentSettings.school === 'maliki' ? 'maliki' : null,
         }
       : null,
+    pregnancies: [...pregnancyData.pregnancies]
+      .sort((a, b) => a.lastPeriodDate.localeCompare(b.lastPeriodDate))
+      .map((p) => ({
+        key: p.id,
+        lastPeriodDate: p.lastPeriodDate,
+        scanDueDate: p.scanDueDate ?? null,
+        endedOn: p.endedOn ?? null,
+        outcome: (p.outcome as PregnancyOutcome | null) ?? null,
+        babyName: p.babyName ?? null,
+        breastfeeding: p.breastfeeding === null || p.breastfeeding === undefined ? null : p.breastfeeding === 1,
+        journeyChoice: p.journeyChoice === 'kept' || p.journeyChoice === 'deleted' ? p.journeyChoice : null,
+        startedAt: p.startedAt ?? null,
+        createdAt: p.createdAt ?? null,
+      })),
+    visits: [...pregnancyData.visits]
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((v) => ({
+        pregnancyKey: v.pregnancyId,
+        date: v.date,
+        kind: v.kind as VisitKind,
+        title: v.title ?? null,
+        weightKg: v.weightKg ?? null,
+        systolic: v.systolic ?? null,
+        diastolic: v.diastolic ?? null,
+        notes: v.notes ?? null,
+        createdAt: v.createdAt ?? null,
+      })),
+    moments: [...pregnancyData.moments]
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((m) => ({
+        pregnancyKey: m.pregnancyId,
+        date: m.date,
+        kind: m.kind as MomentKind,
+        text: m.text ?? null,
+        photoFileName: m.photoFileName ?? null,
+        createdAt: m.createdAt ?? null,
+      })),
+    ramadanOwed: (pregnancyData.ramadanOwed ?? []).map((o) => ({
+      hijriYear: o.hijriYear,
+      owedDays: o.owedDays,
+    })),
+    fastsMadeUp: (pregnancyData.fastsMadeUp ?? []).map((f) => ({
+      hijriYear: f.hijriYear,
+      date: f.date,
+      createdAt: f.createdAt ?? null,
+    })),
+    customSymptoms: (pregnancyData.customSymptoms ?? []).map((c) => ({
+      id: c.id,
+      label: c.label,
+      hidden: c.hidden === 1,
+      createdAt: c.createdAt ?? null,
+    })),
   };
 }
 
@@ -114,9 +263,9 @@ export function serializeBackup(backup: Backup): string {
   return JSON.stringify(backup, null, 2);
 }
 
-/** `lumi-backup-2026-11-21.json`, dated by the phone's local calendar. */
+/** `lumi-backup-2026-11-21.zip`, dated by the phone's local calendar. */
 export function backupFileName(now: Date): string {
-  return `lumi-backup-${toISODate(now)}.json`;
+  return `lumi-backup-${toISODate(now)}.zip`;
 }
 
 export type BackupParseError =
@@ -180,6 +329,78 @@ export function parseBackup(text: string): BackupParseResult {
     logList.push(log);
   }
 
+  // Version 1 files have no pregnancy data; version 2 files without a
+  // list simply have none of that kind.
+  const pregnancyList: BackupPregnancy[] = [];
+  const keys = new Set<string>();
+  for (const item of arrayOrEmpty(raw.pregnancies)) {
+    const pregnancy = readPregnancy(item);
+    if (!pregnancy || keys.has(pregnancy.key)) return { ok: false, error: 'invalid' };
+    keys.add(pregnancy.key);
+    pregnancyList.push(pregnancy);
+  }
+
+  const visitList: BackupVisit[] = [];
+  for (const item of arrayOrEmpty(raw.visits)) {
+    const visit = readVisit(item);
+    // A visit pointing at a pregnancy the file doesn't contain is damage,
+    // not something to guess about.
+    if (!visit || !keys.has(visit.pregnancyKey)) return { ok: false, error: 'invalid' };
+    visitList.push(visit);
+  }
+
+  const momentList: BackupMoment[] = [];
+  for (const item of arrayOrEmpty(raw.moments)) {
+    const moment = readMoment(item);
+    if (!moment || !keys.has(moment.pregnancyKey)) return { ok: false, error: 'invalid' };
+    momentList.push(moment);
+  }
+
+  const owedList: BackupRamadanOwed[] = [];
+  for (const item of arrayOrEmpty(raw.ramadanOwed)) {
+    if (
+      !isObject(item) ||
+      !Number.isInteger(item.hijriYear) ||
+      !Number.isInteger(item.owedDays) ||
+      (item.owedDays as number) < 0 ||
+      (item.owedDays as number) > 30
+    ) {
+      return { ok: false, error: 'invalid' };
+    }
+    owedList.push({ hijriYear: item.hijriYear as number, owedDays: item.owedDays as number });
+  }
+
+  const madeUpList: BackupFastMadeUp[] = [];
+  for (const item of arrayOrEmpty(raw.fastsMadeUp)) {
+    if (!isObject(item) || !Number.isInteger(item.hijriYear) || !isISODate(item.date)) {
+      return { ok: false, error: 'invalid' };
+    }
+    madeUpList.push({
+      hijriYear: item.hijriYear as number,
+      date: item.date,
+      createdAt: optionalTimestamp(item.createdAt),
+    });
+  }
+
+  const customList: BackupCustomSymptom[] = [];
+  for (const item of arrayOrEmpty(raw.customSymptoms)) {
+    if (
+      !isObject(item) ||
+      typeof item.id !== 'string' ||
+      item.id.length === 0 ||
+      typeof item.label !== 'string' ||
+      item.label.trim().length === 0
+    ) {
+      return { ok: false, error: 'invalid' };
+    }
+    customList.push({
+      id: item.id,
+      label: item.label.trim(),
+      hidden: item.hidden === true,
+      createdAt: optionalTimestamp(item.createdAt),
+    });
+  }
+
   return {
     ok: true,
     backup: {
@@ -191,6 +412,12 @@ export function parseBackup(text: string): BackupParseResult {
       // Settings are a convenience, not data: a damaged settings block
       // drops the settings, not the whole restore.
       settings: readSettings(raw.settings),
+      pregnancies: pregnancyList.sort((a, b) => a.lastPeriodDate.localeCompare(b.lastPeriodDate)),
+      visits: visitList,
+      moments: momentList,
+      ramadanOwed: owedList,
+      fastsMadeUp: madeUpList,
+      customSymptoms: customList,
     },
   };
 }
@@ -198,6 +425,7 @@ export function parseBackup(text: string): BackupParseResult {
 export type BackupSummary = {
   periodCount: number;
   logCount: number;
+  pregnancyCount: number;
   /** Earliest and latest dated record in the file, or null when empty. */
   firstDate: string | null;
   lastDate: string | null;
@@ -212,17 +440,35 @@ export function summarizeBackup(backup: Backup): BackupSummary {
   return {
     periodCount: backup.periods.length,
     logCount: backup.dailyLogs.length,
+    pregnancyCount: backup.pregnancies.length,
     firstDate: dates[0] ?? null,
     lastDate: dates[dates.length - 1] ?? null,
   };
 }
 
+export type RestorePregnancy = {
+  pregnancy: BackupPregnancy;
+  visits: BackupVisit[];
+  moments: BackupMoment[];
+};
+
 export type RestorePlan = {
   periodsToAdd: BackupPeriod[];
   logsToAdd: BackupDailyLog[];
+  /** Each pregnancy to add, carrying its own visits and moments. */
+  pregnanciesToAdd: RestorePregnancy[];
   /** Records left out because this phone already has its own version. */
   skippedPeriods: number;
   skippedLogs: number;
+  /** Pregnancies overlapping one already on the phone, skipped together
+   * with their visits and moments. */
+  skippedPregnancies: number;
+  /** Owed counts for years the phone has no number of its own for. */
+  ramadanOwedToAdd: BackupRamadanOwed[];
+  /** Made-up fasts the phone doesn't already have (same year and date). */
+  fastsMadeUpToAdd: BackupFastMadeUp[];
+  /** Her own symptoms the phone has neither by id nor by name. */
+  customSymptomsToAdd: BackupCustomSymptom[];
   /** Settings are only taken from the file on a phone with no data yet. */
   settingsToApply: BackupSettings | null;
 };
@@ -236,17 +482,45 @@ export type RestorePlan = {
  *    one of the phone's periods starts inside it. Adding it anyway would
  *    create two starts a few days apart — exactly the double-logged
  *    period that drags the average cycle down to two days.
- *  - Settings come from the file only when the phone has no periods and
- *    no logs, i.e. a new phone. Otherwise the user has already set this
- *    phone up the way they want it.
+ *  - A pregnancy whose dates overlap one already on the phone is skipped,
+ *    with its visits and moments. Two overlapping pregnancies can't both
+ *    be real, and the phone's own record wins as everywhere else.
+ *  - Settings come from the file only when the phone has no periods, no
+ *    logs and no pregnancies, i.e. a new phone. Otherwise the user has
+ *    already set this phone up the way they want it.
  */
 export function planRestore(
   existing: {
     periods: { startDate: string; endDate: string | null }[];
     logs: { date: string }[];
+    pregnancies?: { lastPeriodDate: string; endedOn: string | null }[];
+    ramadanOwed?: { hijriYear: number }[];
+    fastsMadeUp?: { hijriYear: number; date: string }[];
+    customSymptoms?: { id: string; label: string }[];
   },
   backup: Backup,
 ): RestorePlan {
+  // Her own symptoms: one the phone already has by id needs nothing; one
+  // the phone has under the same name is merged into the phone's, and
+  // the restored logs are pointed at it, so she never sees two
+  // "Migraine" chips.
+  const existingCustom = existing.customSymptoms ?? [];
+  const customSymptomsToAdd: BackupCustomSymptom[] = [];
+  const customIdMap = new Map<string, string>();
+  for (const symptom of backup.customSymptoms) {
+    if (existingCustom.some((c) => c.id === symptom.id)) continue;
+    const sameName = existingCustom.find((c) => isDuplicateLabel(symptom.label, [c.label]));
+    if (sameName) customIdMap.set(symptom.id, sameName.id);
+    else customSymptomsToAdd.push(symptom);
+  }
+  const remapSymptoms = (keys: string[]) =>
+    keys.map((key) => {
+      const id = customIdOf(key);
+      const mapped = id !== null ? customIdMap.get(id) : undefined;
+      return mapped ? customKey(mapped) : key;
+    });
+
+  const existingPregnancies = existing.pregnancies ?? [];
   const periodsToAdd: BackupPeriod[] = [];
   let skippedPeriods = 0;
 
@@ -264,16 +538,145 @@ export function planRestore(
   }
 
   const loggedDays = new Set(existing.logs.map((l) => l.date));
-  const logsToAdd = backup.dailyLogs.filter((l) => !loggedDays.has(l.date));
+  const logsToAdd = backup.dailyLogs
+    .filter((l) => !loggedDays.has(l.date))
+    .map((l) => (customIdMap.size > 0 ? { ...l, symptoms: remapSymptoms(l.symptoms) } : l));
 
-  const phoneIsEmpty = existing.periods.length === 0 && existing.logs.length === 0;
+  const pregnanciesToAdd: RestorePregnancy[] = [];
+  let skippedPregnancies = 0;
+  for (const pregnancy of backup.pregnancies) {
+    const start = pregnancy.lastPeriodDate;
+    const end = pregnancy.endedOn ?? OPEN_ENDED;
+    const overlaps = existingPregnancies.some(
+      (p) => start <= (p.endedOn ?? OPEN_ENDED) && p.lastPeriodDate <= end,
+    );
+    if (overlaps) {
+      skippedPregnancies++;
+      continue;
+    }
+    pregnanciesToAdd.push({
+      pregnancy,
+      visits: backup.visits.filter((v) => v.pregnancyKey === pregnancy.key),
+      moments: backup.moments.filter((m) => m.pregnancyKey === pregnancy.key),
+    });
+  }
+
+  const phoneIsEmpty =
+    existing.periods.length === 0 &&
+    existing.logs.length === 0 &&
+    existingPregnancies.length === 0;
 
   return {
     periodsToAdd,
     logsToAdd,
+    pregnanciesToAdd,
     skippedPeriods,
     skippedLogs: backup.dailyLogs.length - logsToAdd.length,
+    skippedPregnancies,
+    ramadanOwedToAdd: backup.ramadanOwed.filter(
+      (o) => !(existing.ramadanOwed ?? []).some((e) => e.hijriYear === o.hijriYear),
+    ),
+    fastsMadeUpToAdd: backup.fastsMadeUp.filter(
+      (f) => !(existing.fastsMadeUp ?? []).some((e) => e.hijriYear === f.hijriYear && e.date === f.date),
+    ),
+    customSymptomsToAdd,
     settingsToApply: phoneIsEmpty ? backup.settings : null,
+  };
+}
+
+/** Stands in for "still going" when comparing date ranges. */
+const OPEN_ENDED = '9999-12-31';
+
+function arrayOrEmpty(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function optionalISODate(value: unknown): string | null | undefined {
+  if (value === undefined || value === null) return null;
+  return isISODate(value) ? value : undefined;
+}
+
+function optionalNumber(value: unknown): number | null | undefined {
+  if (value === undefined || value === null) return null;
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+/** A plain file name: no folders, so a crafted file can't write outside
+ * the photo folder on restore. */
+function optionalFileName(value: unknown): string | null | undefined {
+  if (value === undefined || value === null) return null;
+  return typeof value === 'string' && /^[A-Za-z0-9._-]+$/.test(value) && !value.startsWith('.')
+    ? value
+    : undefined;
+}
+
+function readPregnancy(item: unknown): BackupPregnancy | null {
+  if (!isObject(item) || typeof item.key !== 'string' || item.key === '') return null;
+  if (!isISODate(item.lastPeriodDate)) return null;
+  const scanDueDate = optionalISODate(item.scanDueDate);
+  const endedOn = optionalISODate(item.endedOn);
+  const babyName = optionalString(item.babyName);
+  if (scanDueDate === undefined || endedOn === undefined || babyName === undefined) return null;
+  if (endedOn !== null && endedOn <= item.lastPeriodDate) return null;
+
+  let outcome: PregnancyOutcome | null = null;
+  if (item.outcome !== undefined && item.outcome !== null) {
+    if (!OUTCOMES.includes(item.outcome as PregnancyOutcome)) return null;
+    outcome = item.outcome as PregnancyOutcome;
+  }
+  // An ended pregnancy must say how it ended, and an open one mustn't.
+  if ((endedOn === null) !== (outcome === null)) return null;
+
+  return {
+    key: item.key,
+    lastPeriodDate: item.lastPeriodDate,
+    scanDueDate,
+    endedOn,
+    outcome,
+    babyName,
+    breastfeeding: typeof item.breastfeeding === 'boolean' ? item.breastfeeding : null,
+    journeyChoice:
+      item.journeyChoice === 'kept' || item.journeyChoice === 'deleted' ? item.journeyChoice : null,
+    startedAt: optionalTimestamp(item.startedAt),
+    createdAt: optionalTimestamp(item.createdAt),
+  };
+}
+
+function readVisit(item: unknown): BackupVisit | null {
+  if (!isObject(item) || typeof item.pregnancyKey !== 'string' || !isISODate(item.date)) return null;
+  if (!VISIT_KINDS.includes(item.kind as VisitKind)) return null;
+  const title = optionalString(item.title);
+  const notes = optionalString(item.notes);
+  const weightKg = optionalNumber(item.weightKg);
+  const systolic = optionalNumber(item.systolic);
+  const diastolic = optionalNumber(item.diastolic);
+  if ([title, notes, weightKg, systolic, diastolic].includes(undefined)) return null;
+  return {
+    pregnancyKey: item.pregnancyKey,
+    date: item.date,
+    kind: item.kind as VisitKind,
+    title: title as string | null,
+    weightKg: weightKg as number | null,
+    systolic: systolic as number | null,
+    diastolic: diastolic as number | null,
+    notes: notes as string | null,
+    createdAt: optionalTimestamp(item.createdAt),
+  };
+}
+
+function readMoment(item: unknown): BackupMoment | null {
+  if (!isObject(item) || typeof item.pregnancyKey !== 'string' || !isISODate(item.date)) return null;
+  if (!MOMENT_KINDS.includes(item.kind as MomentKind)) return null;
+  const text = optionalString(item.text);
+  const photoFileName = optionalFileName(item.photoFileName);
+  if (text === undefined || photoFileName === undefined) return null;
+  return {
+    pregnancyKey: item.pregnancyKey,
+    date: item.date,
+    kind: item.kind as MomentKind,
+    text,
+    photoFileName,
+    createdAt: optionalTimestamp(item.createdAt),
   };
 }
 
@@ -354,7 +757,8 @@ function readDailyLog(item: unknown): BackupDailyLog | null {
 function readSettings(value: unknown): BackupSettings | null {
   if (!isObject(value)) return null;
 
-  const { language, calendarType, fallbackCycleDays, periodDurationDays, theme } = value;
+  const { language, calendarType, fallbackCycleDays, periodDurationDays, theme, showStarSign } =
+    value;
   if (language !== 'fr' && language !== 'en') return null;
   if (calendarType !== 'gregorian' && calendarType !== 'hijri') return null;
   if (theme !== 'system' && theme !== 'light' && theme !== 'dark') return null;
@@ -372,6 +776,8 @@ function readSettings(value: unknown): BackupSettings | null {
       MAX_PERIOD_DURATION_DAYS,
     ),
     theme,
+    showStarSign: typeof showStarSign === 'boolean' ? showStarSign : true,
+    school: value.school === 'maliki' ? 'maliki' : null,
   };
 }
 
