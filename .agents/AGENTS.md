@@ -59,6 +59,13 @@ tapping it, or the test silently checks nothing.
 Do not run `npx expo lint`: the project has no ESLint, so it rewrites
 `package.json` and `package-lock.json` and adds `eslint.config.js`, then fails.
 
+The launch animation (`src/components/launch-splash.tsx`) can only be judged
+on a release build. A debug build shows the dev launcher's blank screen between
+Android's splash and the app, which users never see. The animation hides
+Android's splash only once the logo image has loaded, and that image needs
+`fadeDuration={0}`: Android fades images in over 300 ms by default, which
+showed a frame of empty background at the handover.
+
 Maven Central keeps cutting off the download of `react-android-<version>-debug.aar`
 (about 290 MB), and Gradle fails with "Connection reset" however many retries it
 is given. Fetch it with `curl -C - --retry 5` instead, check it against the
