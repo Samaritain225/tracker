@@ -7,6 +7,8 @@ one EAS run, in progress at the time of writing. From now on work goes into
 
 ## Recently landed
 
+- Animated launch screen on `feat/splash-animation`, pull request into `develop`: the logo turns, breathes and fades into Home. Checked on the debug build in light, dark and with animations off. Not yet seen on a release build: the Mac's disk was too full to build one.
+
 - Stage 5: the Maliki Islamic option (counts, reference limits, Ramadan fasts to make up, sources), verified on the emulator on 2026-11-22.
 - Stage 6: custom symptoms (added from the day sheet, renamed or hidden under Settings > My symptoms), a Patterns card in Insights, and a one-page "Summary for a doctor" shared as a PDF through `expo-print`. Built on the builder's picks, as the owner asked, with no design conversation. Verified on the emulator on 2026-11-22 in English; the PDF was opened and read.
 

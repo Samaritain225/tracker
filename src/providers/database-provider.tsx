@@ -1,7 +1,9 @@
 /**
  * DatabaseProvider — wraps the app with Drizzle migration runner.
  * Seeds the settings row on first launch.
- * Controls splash screen visibility in coordination with font loading.
+ * Tells the launch animation when the app is ready (or has failed), and
+ * shows nothing of its own while migrations run: the launch animation
+ * covers that time.
  */
 
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
@@ -18,17 +20,17 @@ SplashScreen.preventAutoHideAsync();
 
 type Props = {
   children: React.ReactNode;
+  /** Called once migrations have finished, whether they succeeded or not. */
+  onSettled?: () => void;
 };
 
-export function DatabaseProvider({ children }: Props) {
+export function DatabaseProvider({ children, onSettled }: Props) {
   const { success, error } = useMigrations(db, migrations);
 
   useEffect(() => {
-    if (success) {
-      seedSettings();
-      SplashScreen.hideAsync();
-    }
-  }, [success]);
+    if (success) seedSettings();
+    if (success || error) onSettled?.();
+  }, [success, error, onSettled]);
 
   if (error) {
     return (
@@ -39,7 +41,8 @@ export function DatabaseProvider({ children }: Props) {
   }
 
   if (!success) {
-    return <LoadingScreen />;
+    // The launch animation sits on top until this resolves.
+    return null;
   }
 
   return <>{children}</>;

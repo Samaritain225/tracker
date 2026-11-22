@@ -6,12 +6,14 @@
 
 import '@/i18n';
 
-import React from 'react';
+import React, { useCallback, useState } from 'react';
+import { View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Stack } from 'expo-router';
 
 import { ThemeProvider as NavThemeProvider, DarkTheme, DefaultTheme } from 'expo-router/react-navigation';
 
+import { LaunchSplash } from '@/components/launch-splash';
 import { DatabaseProvider } from '@/providers/database-provider';
 import { LocaleProvider } from '@/providers/locale-provider';
 import { ThemeProvider, useTheme } from '@/providers/theme-provider';
@@ -88,17 +90,25 @@ function AppContent() {
 }
 
 export default function RootLayout() {
+  const [ready, setReady] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
+  const handleSettled = useCallback(() => setReady(true), []);
+  const handleSplashFinished = useCallback(() => setShowSplash(false), []);
+
   return (
-    <DatabaseProvider>
-      <LocaleProvider>
-        <ThemeProvider>
-          <AppLockProvider>
-            <RemindersProvider>
-              <AppContent />
-            </RemindersProvider>
-          </AppLockProvider>
-        </ThemeProvider>
-      </LocaleProvider>
-    </DatabaseProvider>
+    <View style={{ flex: 1 }}>
+      <DatabaseProvider onSettled={handleSettled}>
+        <LocaleProvider>
+          <ThemeProvider>
+            <AppLockProvider>
+              <RemindersProvider>
+                <AppContent />
+              </RemindersProvider>
+            </AppLockProvider>
+          </ThemeProvider>
+        </LocaleProvider>
+      </DatabaseProvider>
+      {showSplash && <LaunchSplash ready={ready} onFinished={handleSplashFinished} />}
+    </View>
   );
 }
