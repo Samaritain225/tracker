@@ -201,7 +201,8 @@
     "symptom_back_pain": "Back pain",
     "symptom_heartburn": "Heartburn",
     "symptom_swelling": "Swelling",
-    "symptom_baby_moved": "Felt the baby move"
+    "symptom_baby_moved": "Felt the baby move",
+    "after_period_end": "Day {{day}} since the period that started {{date}}, which is marked as ended on {{end}}. Switch on “Period ended” if it ended on this day instead."
   },
   "notifications": {
     "period_title": "Period Reminder",

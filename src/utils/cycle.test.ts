@@ -12,6 +12,7 @@ import {
   computeOvulationDay,
   computePeriodDuration,
   findPeriodCovering,
+  findPeriodEndedBefore,
   getDayType,
   hasPlausibleCycleData,
   isPeriodOngoing,
@@ -664,5 +665,24 @@ describe('buildCycleWindows around a pregnancy', () => {
     expect(withSpan[0].ovulation).toBe('2026-10-27'); // 13 Oct + 28 − 14
     const without = buildCycleWindows(periods, new Set(), 28, 5, '2026-11-22', true);
     expect(without[0].ovulation).toBe('2026-11-08'); // 13 Oct + 40 − 14
+  });
+});
+
+describe('findPeriodEndedBefore', () => {
+  const marked = { id: 'a', startDate: '2026-08-28', endDate: '2026-08-28' };
+
+  it('finds a period marked as ended before a day a few days after it started', () => {
+    expect(findPeriodEndedBefore([marked], '2026-08-31')).toBe(marked);
+  });
+
+  it('leaves alone a period that covers the day, or one started too long ago', () => {
+    expect(findPeriodEndedBefore([{ ...marked, endDate: '2026-09-02' }], '2026-08-31')).toBeNull();
+    expect(findPeriodEndedBefore([marked], '2026-09-12')).toBeNull();
+    expect(findPeriodEndedBefore([{ ...marked, endDate: null }], '2026-08-31')).toBeNull();
+  });
+
+  it('steps aside once another period has started since', () => {
+    const later = { id: 'b', startDate: '2026-08-30', endDate: null };
+    expect(findPeriodEndedBefore([marked, later], '2026-08-31')).toBeNull();
   });
 });
