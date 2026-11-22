@@ -20,9 +20,11 @@ const RADIUS = SIZE / 2 - DOT;
 type Props = {
   age: GestationalAge;
   trimester: Trimester;
+  /** The week's size comparison, shown in the middle. */
+  emoji: string;
 };
 
-export function WeekRing({ age, trimester }: Props) {
+export function WeekRing({ age, trimester, emoji }: Props) {
   const { colors } = useTheme();
   const { t } = useTranslation();
 
@@ -54,6 +56,7 @@ export function WeekRing({ age, trimester }: Props) {
       })}
 
       <View style={styles.centre}>
+        <Text style={styles.emoji}>{emoji}</Text>
         <Text style={[styles.week, { color: colors.textPrimary }]}>
           {t('pregnancy.week_label', { week: age.weeks })}
         </Text>
@@ -85,6 +88,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
+  },
+  emoji: {
+    fontSize: 38,
+    marginBottom: 2,
   },
   week: {
     fontSize: Typography.sizes.xxl,

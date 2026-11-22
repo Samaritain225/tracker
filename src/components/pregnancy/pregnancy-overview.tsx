@@ -7,8 +7,9 @@
  * content in a later pull request.
  */
 
+import { useRouter } from 'expo-router';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,7 @@ import {
   trimesterFor,
 } from '@/utils/pregnancy';
 import { STAR_SIGN_SYMBOLS, likelyStarSign } from '@/utils/zodiac';
+import { contentForWeek } from '@/utils/pregnancy-content';
 import { WeekRing } from './week-ring';
 
 type Props = {
@@ -67,11 +69,36 @@ export function PregnancyOverview({
         : t('pregnancy.past_due', { count: -toGo });
 
   const star = likelyStarSign(dueISO);
+  const router = useRouter();
+  const week = contentForWeek(age.weeks, language);
+  const sizeParts = [
+    week.size ? t('pregnancy.size_line', { size: week.size }) : null,
+    week.lengthCm !== null
+      ? `${t('pregnancy.length', { value: week.lengthCm.toLocaleString(language) })}${
+          week.measure ? ` (${t(`pregnancy.measure_${week.measure}`)})` : ''
+        }`
+      : null,
+  ].filter(Boolean);
 
   return (
     <View style={styles.wrap}>
-      <WeekRing age={age} trimester={trimester} />
+      <WeekRing age={age} trimester={trimester} emoji={week.emoji} />
       <Text style={styles.age}>{t('pregnancy.age', { weeks: age.weeks, days: age.days })}</Text>
+      {sizeParts.length > 0 ? <Text style={styles.sizeLine}>{sizeParts.join(' · ')}</Text> : null}
+
+      <Card style={styles.weekCard}>
+        <Text style={styles.label}>{t('pregnancy.this_week')}</Text>
+        <Text style={styles.weekText}>{week.baby}</Text>
+        <Text style={[styles.label, styles.forYou]}>{t('pregnancy.for_you')}</Text>
+        <Text style={styles.weekText}>{week.body}</Text>
+        <Pressable
+          onPress={() => router.push('/pregnancy/sources')}
+          accessibilityRole="link"
+          hitSlop={8}
+        >
+          <Text style={styles.link}>{t('pregnancy.about_info')} ›</Text>
+        </Pressable>
+      </Card>
 
       <Card style={styles.row}>
         <View style={styles.half}>
@@ -138,6 +165,28 @@ const makeStyles = (colors: ThemeColors) =>
     row: {
       flexDirection: 'row',
       gap: Spacing.md,
+    },
+    sizeLine: {
+      textAlign: 'center',
+      fontSize: Typography.sizes.sm,
+      color: colors.textPrimary,
+    },
+    weekCard: {
+      gap: Spacing.xs,
+    },
+    weekText: {
+      fontSize: Typography.sizes.md,
+      color: colors.textPrimary,
+      lineHeight: 22,
+    },
+    forYou: {
+      marginTop: Spacing.sm,
+    },
+    link: {
+      marginTop: Spacing.sm,
+      fontSize: Typography.sizes.sm,
+      fontWeight: Typography.weights.semibold,
+      color: colors.primary,
     },
     half: {
       flex: 1,

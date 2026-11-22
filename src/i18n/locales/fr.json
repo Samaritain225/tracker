@@ -281,7 +281,21 @@
     "settings_remove_note": "Commencée par erreur ? Cela la supprime complètement.",
     "remove_confirm_title": "Supprimer cette grossesse ?",
     "remove_confirm_body": "Cela supprime la grossesse et tout ce qui a été noté avec elle. C'est irréversible.",
-    "remove_confirm": "Supprimer"
+    "remove_confirm": "Supprimer",
+    "size_line": "Comparable à {{size}}",
+    "length": "~{{value}} cm",
+    "measure_head_to_bottom": "de la tête aux fesses",
+    "measure_head_to_heel": "de la tête aux talons",
+    "this_week": "Cette semaine",
+    "for_you": "Pour vous",
+    "about_info": "À propos de ces informations",
+    "sources_title": "À propos de ces informations",
+    "sources_intro": "Les notes de Lumi sont rédigées simplement, avec nos propres mots, à partir des sources publiques ci-dessous. Les tailles sont des longueurs approximatives tirées du guide du NHS ; chaque bébé grandit à son rythme.",
+    "sources_review": "Ces notes n'ont pas été relues par une sage-femme ou un médecin. Ce sont des informations générales, pas un avis médical : votre sage-femme ou votre médecin connaît votre grossesse.",
+    "sources_counting": "Les semaines sont comptées à partir du premier jour des dernières règles, comme le font la plupart des services de santé.",
+    "source_nhs": "NHS — Guide de la grossesse semaine par semaine (Royaume-Uni, en anglais)",
+    "source_nhs_scans": "NHS — Les échographies de grossesse (Royaume-Uni, en anglais)",
+    "source_sp": "Service-Public.gouv.fr — Grossesse : examens médicaux (France)"
   },
   "journey": {
     "title": "Votre parcours",

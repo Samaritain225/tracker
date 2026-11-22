@@ -23,6 +23,7 @@ import { buildJourney } from '@/utils/journey';
 import type { JourneyEntry } from '@/utils/journey';
 import { effectiveDueDate, gestationalAge, pregnancyProgress } from '@/utils/pregnancy';
 import { STAR_SIGN_SYMBOLS, likelyStarSign, starSignFor } from '@/utils/zodiac';
+import { milestoneWeeks } from '@/utils/pregnancy-content';
 
 type Props = {
   pregnancy: Pregnancy;
@@ -71,8 +72,8 @@ export function JourneyView({
     [moments, pregnancy.id],
   );
   const entries = useMemo(
-    () => buildJourney(pregnancy, ownVisits, ownMoments, logs, todayISO),
-    [pregnancy, ownVisits, ownMoments, logs, todayISO],
+    () => buildJourney(pregnancy, ownVisits, ownMoments, logs, todayISO, milestoneWeeks(language)),
+    [pregnancy, ownVisits, ownMoments, logs, todayISO, language],
   );
 
   const asOf = pregnancy.endedOn ?? todayISO;
@@ -156,6 +157,8 @@ function entryKey(entry: Entry): string {
       return `m-${entry.moment.id}`;
     case 'week':
       return `w-${entry.summary.week}`;
+    case 'milestone':
+      return `ms-${entry.week}`;
     default:
       return entry.type;
   }
@@ -215,6 +218,11 @@ function TimelineRow({
       emphasis = true;
       label = t('journey.today');
       title = t('pregnancy.week_label', { week: todayWeek });
+      break;
+    case 'milestone':
+      label = formatDate(entry.date);
+      title = `🌟 ${entry.label}`;
+      emphasis = true;
       break;
     case 'ended':
       label = formatDate(entry.date);

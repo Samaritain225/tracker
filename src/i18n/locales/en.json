@@ -281,7 +281,21 @@
     "settings_remove_note": "Started by mistake? This removes it completely.",
     "remove_confirm_title": "Remove this pregnancy?",
     "remove_confirm_body": "This removes the pregnancy and everything recorded with it. It can't be undone.",
-    "remove_confirm": "Remove"
+    "remove_confirm": "Remove",
+    "size_line": "About the size of {{size}}",
+    "length": "~{{value}} cm",
+    "measure_head_to_bottom": "head to bottom",
+    "measure_head_to_heel": "head to heel",
+    "this_week": "This week",
+    "for_you": "For you",
+    "about_info": "About this information",
+    "sources_title": "About this information",
+    "sources_intro": "Lumi's weekly notes are written in plain language, in our own words, from the public sources below. Sizes are approximate lengths from the NHS guide; every baby grows at its own pace.",
+    "sources_review": "These notes have not been reviewed by a midwife or doctor. They are general information, not medical advice: your midwife or doctor knows your pregnancy.",
+    "sources_counting": "Weeks are counted from the first day of your last period, as most health services do.",
+    "source_nhs": "NHS — Week-by-week guide to pregnancy (UK)",
+    "source_nhs_scans": "NHS — Ultrasound scans in pregnancy (UK)",
+    "source_sp": "Service-Public.gouv.fr — Grossesse : examens médicaux (France)"
   },
   "journey": {
     "title": "Your journey",

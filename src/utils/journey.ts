@@ -27,6 +27,7 @@ export type JourneyEntry<V extends VisitLike, M extends MomentLike> =
   | { type: 'visit'; date: string; visit: V; upcoming: boolean }
   | { type: 'moment'; date: string; moment: M }
   | { type: 'week'; date: string; summary: WeekSummary }
+  | { type: 'milestone'; date: string; week: number; label: string }
   | { type: 'today'; date: string }
   | { type: 'ended'; date: string; outcome: 'birth' | 'loss' };
 
@@ -75,8 +76,21 @@ export function buildJourney<V extends VisitLike, M extends MomentLike>(
   moments: M[],
   logs: LogLike[],
   todayISO: string,
+  milestones: { week: number; label: string }[] = [],
 ): JourneyEntry<V, M>[] {
   const entries: JourneyEntry<V, M>[] = [];
+
+  // Milestones appear once reached, and never after a loss: "Halfway
+  // there" on the timeline of a pregnancy that ended is the opposite of
+  // what the loss path promises.
+  if (pregnancy.outcome !== 'loss') {
+    const start = parseISODate(gestationStartDate(pregnancy));
+    const reachedBy = pregnancy.endedOn ?? todayISO;
+    for (const m of milestones) {
+      const date = toISODate(addDays(start, m.week * 7));
+      if (date <= reachedBy) entries.push({ type: 'milestone', date, week: m.week, label: m.label });
+    }
+  }
 
   for (const visit of visits) {
     entries.push({ type: 'visit', date: visit.date, visit, upcoming: visit.date > todayISO });
@@ -101,7 +115,7 @@ export function buildJourney<V extends VisitLike, M extends MomentLike>(
   // Newest first. On the same day: the ending or today first, then
   // visits, then moments (latest added first), then the week summary,
   // which describes the days after its start date.
-  const rank = { ended: 0, today: 0, visit: 1, moment: 2, week: 3 } as const;
+  const rank = { ended: 0, today: 0, milestone: 1, visit: 2, moment: 3, week: 4 } as const;
   return entries.sort((a, b) => {
     if (a.date !== b.date) return b.date.localeCompare(a.date);
     if (rank[a.type] !== rank[b.type]) return rank[a.type] - rank[b.type];

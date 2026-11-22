@@ -65,6 +65,10 @@ function AppContent() {
           options={{ presentation: 'modal', headerShown: false }}
         />
         <Stack.Screen name="pregnancy/journey/[id]" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="pregnancy/sources"
+          options={{ presentation: 'modal', headerShown: false }}
+        />
         <Stack.Screen 
           name="day/[date]" 
           options={{ 

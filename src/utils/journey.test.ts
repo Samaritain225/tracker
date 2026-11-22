@@ -75,6 +75,24 @@ describe('buildJourney', () => {
     expect(sameDay.map((e) => e.type === 'moment' && e.moment.id)).toEqual(['m-note', 'm-kick']);
   });
 
+  it('marks milestones once they are reached', () => {
+    const milestones = [
+      { week: 20, label: 'Halfway there' },
+      { week: 37, label: 'Full term' },
+    ];
+    const journey = buildJourney(pregnancy, [], [], [], '2026-11-22', milestones);
+    // Week 20 began on 2026-11-21; week 37 is still ahead.
+    expect(journey.filter((e) => e.type === 'milestone')).toEqual([
+      { type: 'milestone', date: '2026-11-21', week: 20, label: 'Halfway there' },
+    ]);
+  });
+
+  it('never shows milestones after a loss', () => {
+    const lost = { ...pregnancy, endedOn: '2026-12-01', outcome: 'loss' };
+    const journey = buildJourney(lost, [], [], [], '2027-01-01', [{ week: 20, label: 'Halfway there' }]);
+    expect(journey.some((e) => e.type === 'milestone')).toBe(false);
+  });
+
   it('ends an ended pregnancy with its ending instead of today', () => {
     const ended = { ...pregnancy, endedOn: '2027-04-08', outcome: 'birth' };
     const journey = buildJourney(ended, [], [], [], '2027-05-01');
