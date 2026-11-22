@@ -74,6 +74,13 @@ describe('islamicStatus', () => {
     expect(islamicStatus({ ...base, rules: null, flowDates: dates('2026-11-22') })).toEqual({ kind: 'none' });
   });
 
+  it('treats a period not yet marked as ended as still going', () => {
+    // Started 13 days ago with no end: Home asks whether it has ended,
+    // so the card counts it as bleeding rather than claiming purity.
+    const status = islamicStatus({ ...base, periods: [{ startDate: '2026-11-10', endDate: null }] });
+    expect(status).toEqual({ kind: 'bleeding', day: 13, notes: [] });
+  });
+
   it('counts the day of bleeding', () => {
     const status = islamicStatus({ ...base, periods: [{ startDate: '2026-11-20', endDate: null }] });
     expect(status).toEqual({ kind: 'bleeding', day: 3, notes: [] });

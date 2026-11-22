@@ -10,7 +10,7 @@
  * disagree with the calendar she is looking at.
  */
 
-import { computePeriodDuration } from '../cycle';
+import { computePeriodDuration, isPeriodOngoing } from '../cycle';
 import { addDays, daysBetween, parseISODate, toISODate } from '../date';
 import type { ReferenceNote, SchoolRules } from './types';
 
@@ -121,6 +121,18 @@ export function islamicStatus(input: StatusInput): IslamicStatus {
   }
 
   const dates = bleedingDates(periods, flowDates, input.defaultDurationDays, pregnancies);
+
+  // A period she started but hasn't said has ended is still going, as
+  // far as the app knows: Home asks her "Has your period ended?" about
+  // it. Counting it as over after the default length would have the card
+  // claim days of purity right under that question.
+  const latest = [...periods].sort((a, b) => a.startDate.localeCompare(b.startDate)).pop();
+  if (latest && latest.startDate <= todayISO && isPeriodOngoing(latest, todayISO)) {
+    for (let d = parseISODate(latest.startDate); toISODate(d) <= todayISO; d = addDays(d, 1)) {
+      dates.add(toISODate(d));
+    }
+  }
+
   const runs = bleedingRuns(dates);
   const bleedingToday = dates.has(todayISO);
   const currentRun = bleedingToday ? runs.find((r) => r.start <= todayISO && r.end >= todayISO) : undefined;
