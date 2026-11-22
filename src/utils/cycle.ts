@@ -164,7 +164,8 @@ export function computeOvulationDay(
 
 /**
  * Computes the fertile window around the ovulation date.
- * Start = ovulation - 5 days, End = ovulation + 1 day.
+ * From FERTILE_DAYS_BEFORE_OVULATION days before ovulation to
+ * FERTILE_DAYS_AFTER_OVULATION days after it.
  */
 export function computeFertileWindow(
   ovulationDate: Date,

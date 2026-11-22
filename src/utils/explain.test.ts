@@ -42,7 +42,7 @@ describe('explainSections', () => {
 
   it('places ovulation and the fertile days the way the calendar does', () => {
     const ovulation = find(explainSections(base), 'ovulation');
-    expect(ovulation.yours?.dates).toEqual(['2026-10-13', '2026-10-10', '2026-10-17']);
+    expect(ovulation.yours?.dates).toEqual(['2026-10-13', '2026-10-08', '2026-10-16']);
   });
 
   it('counts the days late only once the expected day has passed', () => {
