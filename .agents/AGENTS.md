@@ -162,5 +162,6 @@ id. Never delete a `custom_symptoms` row either: past logs still point at it,
 which is why "My symptoms" only hides one.
 
 Adding a package with native code (as `expo-print` was in stage 6) means
-rebuilding the debug app with Gradle before testing; the old debug build
-crashes on the missing module rather than failing at bundle time.
+rebuilding the debug app with Gradle before testing. Metro bundles the
+JavaScript fine either way, but the old debug build has no native half of the
+module, so the screen that uses it fails only when it runs.
