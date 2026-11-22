@@ -3,6 +3,7 @@
  * Calculates and displays cycle averages, variances, and common symptoms.
  */
 
+import { useRouter } from 'expo-router';
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,12 +13,21 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Spacing, Typography } from '@/constants/theme';
 import type { ThemeColors } from '@/constants/theme';
 import { useTheme } from '@/providers/theme-provider';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { PatternsCard } from '@/components/insights/patterns-card';
+import { useCustomSymptoms } from '@/hooks/use-custom-symptoms';
+import { findPatterns } from '@/utils/patterns';
+import { mostLoggedSymptoms } from '@/utils/symptoms';
 import { MetricCard } from '@/components/ui/metric-card';
 import { SymptomHeatmap } from '@/components/insights/symptom-heatmap';
 import { usePeriods } from '@/hooks/use-periods';
 import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { useSettings } from '@/hooks/use-settings';
+import { usePregnancies } from '@/hooks/use-pregnancies';
+import { pregnancySpans, resolveMode } from '@/utils/pregnancy';
+import { PregnancyInsights } from '@/components/pregnancy/pregnancy-insights';
+import { usePregnancyVisits } from '@/hooks/use-pregnancy-visits';
 import { useToday } from '@/hooks/use-today';
 import { DEFAULT_PERIOD_DURATION_DAYS } from '@/constants/cycle';
 import {
@@ -32,20 +42,27 @@ export default function InsightsScreen() {
   const { t } = useTranslation();
   const { periods } = usePeriods();
   const { logs } = useDailyLogs();
+  const { visits } = usePregnancyVisits();
   const { settings } = useSettings();
+  const { pregnancies: pregnancyList } = usePregnancies();
   const { colors } = useTheme();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const todayISO = useToday();
+  const { labelOf } = useCustomSymptoms();
+  const router = useRouter();
 
   const fallbackCycle = settings?.fallbackCycleDays ?? 28;
+  // Gaps that contain a pregnancy aren't cycles, so they are left out of
+  // every average here exactly as on Home.
+  const spans = useMemo(() => pregnancySpans(pregnancyList), [pregnancyList]);
 
   const sortedDates = useMemo(
     () => periods.map((p) => p.startDate).sort(),
     [periods],
   );
   const computedCycleLength = useMemo(() => {
-    return computeCycleLength(sortedDates, fallbackCycle);
-  }, [sortedDates, fallbackCycle]);
+    return computeCycleLength(sortedDates, fallbackCycle, spans);
+  }, [sortedDates, fallbackCycle, spans]);
 
   // 1. Average Cycle Length & Variance
   // Delegates to the same computeCycleLength/computeCycleVariance the
@@ -54,8 +71,8 @@ export default function InsightsScreen() {
   // Show a dash rather than the settings default dressed up as a
   // measurement — the same reasoning computeAveragePeriodLength applies
   // when it refuses to average a defaulted period length.
-  const avgCycle = hasPlausibleCycleData(sortedDates) ? computedCycleLength : null;
-  const variance = useMemo(() => computeCycleVariance(sortedDates), [sortedDates]);
+  const avgCycle = hasPlausibleCycleData(sortedDates, spans) ? computedCycleLength : null;
+  const variance = useMemo(() => computeCycleVariance(sortedDates, spans), [sortedDates, spans]);
 
   // 2. Average Period Length.
   // Delegates to computeAveragePeriodLength so this uses the same
@@ -77,18 +94,21 @@ export default function InsightsScreen() {
   );
 
   // 3. Most Common Symptoms
-  const topSymptoms = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const log of logs) {
-      for (const sym of log.symptoms || []) {
-        counts[sym] = (counts[sym] || 0) + 1;
-      }
-    }
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([sym]) => sym);
-  }, [logs]);
+  const topSymptoms = useMemo(() => mostLoggedSymptoms(logs, 3).map((s) => s.key), [logs]);
+
+  const mode = resolveMode(pregnancyList, sortedDates);
+
+  const patterns = useMemo(
+    () =>
+      findPatterns({
+        periods,
+        logs,
+        flowDates: flowLoggedDates,
+        defaultDurationDays: settings?.periodDurationDays ?? DEFAULT_PERIOD_DURATION_DAYS,
+        spans,
+      }),
+    [periods, logs, flowLoggedDates, settings?.periodDurationDays, spans],
+  );
 
   return (
     <View style={styles.container}>
@@ -104,7 +124,18 @@ export default function InsightsScreen() {
         <Text style={styles.screenTitle}>{t('insights.title')}</Text>
       </Animated.View>
 
-      {sortedDates.length < 2 && logs.length === 0 ? (
+      {mode.kind === 'pregnant' ? (
+        <Animated.View entering={FadeInDown.duration(600).delay(200).springify()}>
+          <PregnancyInsights
+            pregnancy={mode.pregnancy}
+            visits={visits}
+            logs={logs}
+            todayISO={todayISO}
+            language={(settings?.language as 'en' | 'fr') ?? 'fr'}
+            calendarType={(settings?.calendarType as 'gregorian' | 'hijri') ?? 'gregorian'}
+          />
+        </Animated.View>
+      ) : sortedDates.length < 2 && logs.length === 0 ? (
         <Animated.View entering={FadeInDown.duration(600).delay(200).springify()}>
           <Card style={styles.emptyCard}>
             <Text style={styles.emptyText}>{t('insights.no_data')}</Text>
@@ -142,7 +173,7 @@ export default function InsightsScreen() {
                 <View style={styles.chipGroup}>
                   {topSymptoms.map((sym) => (
                     <View key={sym} style={styles.chip}>
-                      <Text style={styles.chipText}>{t(`day_details.symptom_${sym}`)}</Text>
+                      <Text style={styles.chipText}>{labelOf(sym)}</Text>
                     </View>
                   ))}
                 </View>
@@ -150,12 +181,25 @@ export default function InsightsScreen() {
             </Animated.View>
           )}
 
+          <Animated.View entering={FadeInDown.duration(600).delay(450).springify()}>
+            <PatternsCard result={patterns} labelOf={labelOf} />
+          </Animated.View>
+
           {/* Symptom Heatmap */}
           <Animated.View entering={FadeInDown.duration(600).delay(500).springify()}>
             <SymptomHeatmap
               periods={periods}
               logs={logs}
               cycleLength={computedCycleLength}
+            />
+          </Animated.View>
+          <Animated.View entering={FadeInDown.duration(600).delay(600).springify()}>
+            <Button
+              label={t('summary.title')}
+              icon="medkit-outline"
+              onPress={() => router.push('/summary')}
+              variant="secondary"
+              fullWidth
             />
           </Animated.View>
         </>

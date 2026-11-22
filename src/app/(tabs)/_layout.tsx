@@ -46,11 +46,15 @@ export default function TabLayout() {
           name={tab.name}
           options={{
             title: t(tab.titleKey),
-            tabBarIcon: ({ focused, color, size }) => (
+            // Colour comes from the theme rather than the navigator's
+            // `color` argument: React Native 0.88 widened that to a
+            // ColorValue the icon font cannot take, and these are the
+            // same two theme values passed as the tint colours above.
+            tabBarIcon: ({ focused, size }) => (
               <Icon
                 name={focused ? tab.activeIcon : tab.inactiveIcon}
                 size={size}
-                color={color}
+                color={focused ? colors.tabActive : colors.tabInactive}
               />
             ),
           }}

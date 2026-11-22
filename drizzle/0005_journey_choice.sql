@@ -1,0 +1,1 @@
+ALTER TABLE `pregnancies` ADD `journey_choice` text;

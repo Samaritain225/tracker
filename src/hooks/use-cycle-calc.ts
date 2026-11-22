@@ -8,7 +8,7 @@
 import { useMemo } from 'react';
 
 import { DEFAULT_CYCLE_DAYS, DEFAULT_PERIOD_DURATION_DAYS } from '@/constants/cycle';
-import type { DailyLog, Period, Settings } from '@/db/schema';
+import type { DailyLog, Period, Pregnancy, Settings } from '@/db/schema';
 import {
   buildCycleWindows,
   computeCycleLength,
@@ -19,10 +19,23 @@ import type { CycleWindow } from '@/utils/cycle';
 import { computePhase } from '@/utils/phase';
 import type { PhaseInfo } from '@/utils/phase';
 import { daysBetween, parseISODate } from '@/utils/date';
+import {
+  POST_PREGNANCY_IRREGULAR_CYCLES,
+  periodsSinceLastPregnancy,
+  pregnancySpans,
+  resolveMode,
+} from '@/utils/pregnancy';
+import type { AppMode } from '@/utils/pregnancy';
 
 export type CycleInfo = {
+  /** Cycle tracking, pregnant, or recovering after a pregnancy. Outside
+   * cycle mode there are no predictions, no lateness and no phase. */
+  mode: AppMode<Pregnancy>;
   cycleLength: number;
-  cycleSource: 'calculated' | 'fallback';
+  /** 'after_pregnancy' while the first few cycles after a pregnancy are
+   * still settling — the number is shown as an estimate even when there
+   * is data behind it. */
+  cycleSource: 'calculated' | 'fallback' | 'after_pregnancy';
   lastPeriod: string | null;
   /**
    * The full past+future cycle series, for calendar rendering across
@@ -37,6 +50,10 @@ export type CycleInfo = {
   daysUntilNextPeriod: number | null;
   daysUntilOvulation: number | null;
   currentPhase: PhaseInfo | null;
+  /** Days since the next period was due, or 0 when it isn't overdue.
+   * While this is above 0, `nextPeriod` is today rather than the missed
+   * due date. */
+  daysLate: number;
   /**
    * The period currently in progress, if any — set while the user has
    * logged a start but not yet marked an end. Drives the "Day N of your
@@ -61,6 +78,7 @@ export function useCycleCalc(
   dailyLogList: DailyLog[],
   currentSettings: Settings | null,
   todayISO: string,
+  pregnancyList: Pregnancy[] = [],
 ): CycleInfo {
   return useMemo(() => {
     const fallback = currentSettings?.fallbackCycleDays ?? DEFAULT_CYCLE_DAYS;
@@ -69,13 +87,21 @@ export function useCycleCalc(
     const sortedPeriods = [...periodList].sort((a, b) => a.startDate.localeCompare(b.startDate));
     const sortedDates = sortedPeriods.map((p) => p.startDate);
 
-    const cycleLength = computeCycleLength(sortedDates, fallback);
+    const mode = resolveMode(pregnancyList, sortedDates);
+    const spans = pregnancySpans(pregnancyList);
+    const cycleLength = computeCycleLength(sortedDates, fallback, spans);
     // Asks whether the number is actually a measurement, not merely
     // whether two dates exist — two starts a few days apart yield a
     // fallback value, and calling that "calculated" is a lie the user
     // has no way to see through.
-    const cycleSource: 'calculated' | 'fallback' =
-      hasPlausibleCycleData(sortedDates) ? 'calculated' : 'fallback';
+    const sinceLastPregnancy = periodsSinceLastPregnancy(pregnancyList, sortedDates);
+    const cycleSource: CycleInfo['cycleSource'] =
+      sinceLastPregnancy !== null && sinceLastPregnancy <= POST_PREGNANCY_IRREGULAR_CYCLES
+        ? 'after_pregnancy'
+        : hasPlausibleCycleData(sortedDates, spans)
+          ? 'calculated'
+          : 'fallback';
+    const inCycleMode = mode.kind === 'cycle';
 
     const lastPeriod = sortedPeriods.length > 0
       ? sortedPeriods[sortedPeriods.length - 1].startDate
@@ -83,6 +109,7 @@ export function useCycleCalc(
 
     if (!lastPeriod) {
       return {
+        mode,
         cycleLength,
         cycleSource,
         lastPeriod: null,
@@ -93,6 +120,7 @@ export function useCycleCalc(
         daysUntilNextPeriod: null,
         daysUntilOvulation: null,
         currentPhase: null,
+        daysLate: 0,
         ongoingPeriod: null,
       };
     }
@@ -101,7 +129,15 @@ export function useCycleCalc(
       dailyLogList.filter((l) => l.flow).map((l) => l.date),
     );
 
-    const cycles = buildCycleWindows(sortedPeriods, flowLoggedDates, cycleLength, periodDuration);
+    const cycles = buildCycleWindows(
+      sortedPeriods,
+      flowLoggedDates,
+      cycleLength,
+      periodDuration,
+      todayISO,
+      inCycleMode,
+      spans,
+    );
 
     // The nearest predicted cycle is the "next period" convenience
     // value everything else (CycleSummary, reminders) reads — cycles
@@ -116,13 +152,16 @@ export function useCycleCalc(
     const today = parseISODate(todayISO);
     const daysUntilNextPeriod = nextPeriod ? daysBetween(today, nextPeriod) : null;
     const daysUntilOvulation = ovulationDay ? daysBetween(today, ovulationDay) : null;
-    const currentPhase = computePhase(lastPeriod, cycleLength, periodDuration, today);
+    const currentPhase = inCycleMode
+      ? computePhase(lastPeriod, cycleLength, periodDuration, today)
+      : null;
+    const daysLate = currentPhase?.daysLate ?? 0;
 
     // Only the most recent period can be in progress; anything earlier is
     // settled whether or not its end was ever confirmed.
     const latest = sortedPeriods[sortedPeriods.length - 1];
     const dayOfPeriod = daysBetween(parseISODate(latest.startDate), today) + 1;
-    const ongoingPeriod: OngoingPeriod | null = isPeriodOngoing(latest, todayISO)
+    const ongoingPeriod: OngoingPeriod | null = inCycleMode && isPeriodOngoing(latest, todayISO)
       ? {
           id: latest.id,
           startDate: latest.startDate,
@@ -132,6 +171,7 @@ export function useCycleCalc(
       : null;
 
     return {
+      mode,
       cycleLength,
       cycleSource,
       lastPeriod,
@@ -142,7 +182,8 @@ export function useCycleCalc(
       daysUntilNextPeriod,
       daysUntilOvulation,
       currentPhase,
+      daysLate,
       ongoingPeriod,
     };
-  }, [periodList, dailyLogList, currentSettings, todayISO]);
+  }, [periodList, dailyLogList, currentSettings, todayISO, pregnancyList]);
 }

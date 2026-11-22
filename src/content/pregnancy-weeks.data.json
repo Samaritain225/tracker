@@ -1,0 +1,239 @@
+{
+  "_comment": "Sizes from the NHS week-by-week guide to pregnancy (nhs.uk). Weeks count from the first day of the last period. Weeks 0-3 share one entry; weeks past 41 use week 41.",
+  "weeks": [
+    {
+      "week": 0,
+      "emoji": "✨",
+      "lengthCm": null,
+      "measure": null
+    },
+    {
+      "week": 4,
+      "emoji": "🌱",
+      "lengthCm": 0.2,
+      "measure": null
+    },
+    {
+      "week": 5,
+      "emoji": "🌱",
+      "lengthCm": 0.2,
+      "measure": null
+    },
+    {
+      "week": 6,
+      "emoji": "🟢",
+      "lengthCm": 0.6,
+      "measure": null
+    },
+    {
+      "week": 7,
+      "emoji": "🍇",
+      "lengthCm": 1.0,
+      "measure": "head_to_bottom"
+    },
+    {
+      "week": 8,
+      "emoji": "🍒",
+      "lengthCm": 1.6,
+      "measure": null
+    },
+    {
+      "week": 9,
+      "emoji": "🍓",
+      "lengthCm": 2.2,
+      "measure": "head_to_bottom"
+    },
+    {
+      "week": 10,
+      "emoji": "🍑",
+      "lengthCm": 3.0,
+      "measure": "head_to_bottom"
+    },
+    {
+      "week": 11,
+      "emoji": "🌰",
+      "lengthCm": 4.1,
+      "measure": "head_to_bottom"
+    },
+    {
+      "week": 12,
+      "emoji": "🍋",
+      "lengthCm": 5.4,
+      "measure": "head_to_bottom"
+    },
+    {
+      "week": 13,
+      "emoji": "🍋",
+      "lengthCm": 7.4,
+      "measure": null
+    },
+    {
+      "week": 14,
+      "emoji": "🥝",
+      "lengthCm": 8.5,
+      "measure": "head_to_bottom"
+    },
+    {
+      "week": 15,
+      "emoji": "🍎",
+      "lengthCm": 10.1,
+      "measure": "head_to_bottom"
+    },
+    {
+      "week": 16,
+      "emoji": "🥑",
+      "lengthCm": 11.6,
+      "measure": "head_to_bottom"
+    },
+    {
+      "week": 17,
+      "emoji": "🍐",
+      "lengthCm": 12.0,
+      "measure": "head_to_bottom"
+    },
+    {
+      "week": 18,
+      "emoji": "🫑",
+      "lengthCm": 14.2,
+      "measure": "head_to_bottom"
+    },
+    {
+      "week": 19,
+      "emoji": "🍅",
+      "lengthCm": 15.3,
+      "measure": "head_to_bottom"
+    },
+    {
+      "week": 20,
+      "emoji": "🍌",
+      "lengthCm": 25.6,
+      "measure": "head_to_heel"
+    },
+    {
+      "week": 21,
+      "emoji": "🥕",
+      "lengthCm": 26.7,
+      "measure": "head_to_heel"
+    },
+    {
+      "week": 22,
+      "emoji": "🍠",
+      "lengthCm": 27.8,
+      "measure": "head_to_heel"
+    },
+    {
+      "week": 23,
+      "emoji": "🥭",
+      "lengthCm": 28.9,
+      "measure": "head_to_heel"
+    },
+    {
+      "week": 24,
+      "emoji": "🌽",
+      "lengthCm": 30.0,
+      "measure": "head_to_heel"
+    },
+    {
+      "week": 25,
+      "emoji": "🥒",
+      "lengthCm": 34.6,
+      "measure": "head_to_heel"
+    },
+    {
+      "week": 26,
+      "emoji": "🥒",
+      "lengthCm": 35.6,
+      "measure": "head_to_heel"
+    },
+    {
+      "week": 27,
+      "emoji": "🥦",
+      "lengthCm": 36.6,
+      "measure": "head_to_heel"
+    },
+    {
+      "week": 28,
+      "emoji": "🍆",
+      "lengthCm": 37.6,
+      "measure": "head_to_heel"
+    },
+    {
+      "week": 29,
+      "emoji": "🥥",
+      "lengthCm": 38.6,
+      "measure": "head_to_heel"
+    },
+    {
+      "week": 30,
+      "emoji": "🥬",
+      "lengthCm": 39.9,
+      "measure": "head_to_heel"
+    },
+    {
+      "week": 31,
+      "emoji": "🥥",
+      "lengthCm": 41.1,
+      "measure": "head_to_heel"
+    },
+    {
+      "week": 32,
+      "emoji": "🍈",
+      "lengthCm": 42.4,
+      "measure": "head_to_heel"
+    },
+    {
+      "week": 33,
+      "emoji": "🍍",
+      "lengthCm": 43.7,
+      "measure": "head_to_heel"
+    },
+    {
+      "week": 34,
+      "emoji": "🍈",
+      "lengthCm": 45.0,
+      "measure": "head_to_heel"
+    },
+    {
+      "week": 35,
+      "emoji": "🍈",
+      "lengthCm": 46.2,
+      "measure": "head_to_heel"
+    },
+    {
+      "week": 36,
+      "emoji": "🥬",
+      "lengthCm": 47.4,
+      "measure": "head_to_heel"
+    },
+    {
+      "week": 37,
+      "emoji": "🌿",
+      "lengthCm": 48.6,
+      "measure": "head_to_heel"
+    },
+    {
+      "week": 38,
+      "emoji": "🌿",
+      "lengthCm": 49.8,
+      "measure": "head_to_heel"
+    },
+    {
+      "week": 39,
+      "emoji": "🍉",
+      "lengthCm": 50.7,
+      "measure": "head_to_heel"
+    },
+    {
+      "week": 40,
+      "emoji": "🎃",
+      "lengthCm": 51.2,
+      "measure": "head_to_heel"
+    },
+    {
+      "week": 41,
+      "emoji": "🎃",
+      "lengthCm": null,
+      "measure": null
+    }
+  ]
+}

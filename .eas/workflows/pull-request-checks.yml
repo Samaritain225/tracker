@@ -1,0 +1,22 @@
+name: Pull Request Checks
+
+# Runs the same checks as the production workflow on every pull request,
+# without building an APK, so cloud build credits are only spent on main.
+on:
+  pull_request:
+    branches: ['main']
+
+defaults:
+  tools:
+    node: 24.15.0
+
+jobs:
+  checks:
+    name: Type check and tests
+    steps:
+      - uses: eas/checkout
+      - uses: eas/install_node_modules
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Tests
+        run: npx jest

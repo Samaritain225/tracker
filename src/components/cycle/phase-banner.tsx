@@ -6,6 +6,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { LATE_TEST_SUGGESTION_DAYS } from '@/constants/cycle';
 import { Radii, Spacing, Typography } from '@/constants/theme';
 import type { ThemeColors } from '@/constants/theme';
 import { useTheme } from '@/providers/theme-provider';
@@ -19,16 +20,28 @@ type Props = {
   /** Invoked when the user confirms their period has stopped, from the
    * prompt shown once bleeding runs past their typical duration. */
   onConfirmPeriodEnded?: () => void;
+  /** Set when the period is late enough to ask about a test, and the
+   * user hasn't already answered "Not pregnant" for this cycle. */
+  pregnancyPrompt?: { onPregnant: () => void; onNotPregnant: () => void } | null;
 };
 
-export function PhaseBanner({ phaseInfo, ongoingPeriod, onConfirmPeriodEnded }: Props) {
+export function PhaseBanner({
+  phaseInfo,
+  ongoingPeriod,
+  onConfirmPeriodEnded,
+  pregnancyPrompt,
+}: Props) {
   const { colors } = useTheme();
   const styles = React.useMemo(() => makeStyles(colors), [colors]);
   const { t } = useTranslation();
 
   const progress = Math.min(phaseInfo.dayInPhase / Math.max(phaseInfo.totalPhaseDays, 1), 1);
   const phaseName = t(`phase.${phaseInfo.phase}`);
-  const tip = phaseInfo.isLate ? t('phase.late_tip') : t(`phase.${phaseInfo.phase}_tip`);
+  const tip = !phaseInfo.isLate
+    ? t(`phase.${phaseInfo.phase}_tip`)
+    : phaseInfo.daysLate >= LATE_TEST_SUGGESTION_DAYS
+      ? t('phase.late_test_tip')
+      : t('phase.late_tip');
 
   return (
     <View style={styles.container}>
@@ -69,6 +82,28 @@ export function PhaseBanner({ phaseInfo, ongoingPeriod, onConfirmPeriodEnded }: 
           >
             <Text style={styles.confirmButtonText}>{t('phase.period_ended_yes')}</Text>
           </Pressable>
+        </View>
+      ) : null}
+
+      {pregnancyPrompt ? (
+        <View style={styles.confirmRow}>
+          <Text style={styles.confirmQuestion}>{t('pregnancy.prompt_question')}</Text>
+          <View style={styles.promptButtons}>
+            <Pressable
+              onPress={pregnancyPrompt.onPregnant}
+              style={styles.confirmButton}
+              accessibilityRole="button"
+            >
+              <Text style={styles.confirmButtonText}>{t('pregnancy.prompt_pregnant')}</Text>
+            </Pressable>
+            <Pressable
+              onPress={pregnancyPrompt.onNotPregnant}
+              style={styles.secondaryButton}
+              accessibilityRole="button"
+            >
+              <Text style={styles.secondaryButtonText}>{t('pregnancy.prompt_not_pregnant')}</Text>
+            </Pressable>
+          </View>
         </View>
       ) : null}
     </View>
@@ -151,6 +186,22 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: Spacing.sm,
     borderRadius: Radii.full,
     backgroundColor: colors.primary,
+  },
+  promptButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  secondaryButton: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radii.full,
+    backgroundColor: colors.surfaceAlt,
+  },
+  secondaryButtonText: {
+    fontSize: Typography.sizes.sm,
+    fontWeight: Typography.weights.semibold,
+    color: colors.textPrimary,
   },
   confirmButtonText: {
     fontSize: Typography.sizes.sm,

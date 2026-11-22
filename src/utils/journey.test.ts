@@ -1,0 +1,125 @@
+/**
+ * Tests for the Journey timeline.
+ */
+
+import { buildJourney, summarizeWeeks, symptomGridByWeek } from './journey';
+
+const pregnancy = {
+  lastPeriodDate: '2026-07-04',
+  scanDueDate: null,
+  endedOn: null,
+  outcome: null,
+};
+
+describe('summarizeWeeks', () => {
+  it('groups logged symptoms by gestational week, most frequent first', () => {
+    // Week 18 runs 2026-11-07 to 2026-11-13 (126 to 132 days in).
+    const logs = [
+      { date: '2026-11-07', symptoms: ['fatigue', 'back_pain'] },
+      { date: '2026-11-08', symptoms: ['fatigue'] },
+      { date: '2026-11-09', symptoms: [] },
+      { date: '2026-11-14', symptoms: ['nausea'] },
+    ];
+    expect(summarizeWeeks(pregnancy, logs)).toEqual([
+      {
+        week: 18,
+        startDate: '2026-11-07',
+        daysLogged: 2,
+        symptoms: [
+          { key: 'fatigue', days: 2 },
+          { key: 'back_pain', days: 1 },
+        ],
+      },
+      { week: 19, startDate: '2026-11-14', daysLogged: 1, symptoms: [{ key: 'nausea', days: 1 }] },
+    ]);
+  });
+
+  it('ignores logs from before the pregnancy and after it ended', () => {
+    const ended = { ...pregnancy, endedOn: '2026-11-10' };
+    const logs = [
+      { date: '2026-07-01', symptoms: ['cramps'] },
+      { date: '2026-11-11', symptoms: ['fatigue'] },
+    ];
+    expect(summarizeWeeks(ended, logs)).toEqual([]);
+  });
+});
+
+describe('buildJourney', () => {
+  const visits = [
+    { id: 'v-past', date: '2026-10-28' },
+    { id: 'v-next', date: '2026-11-26' },
+  ];
+  const moments = [
+    { id: 'm-test', date: '2026-08-10', createdAt: 1 },
+    { id: 'm-kick', date: '2026-11-15', createdAt: 2 },
+    { id: 'm-note', date: '2026-11-15', createdAt: 3 },
+  ];
+
+  it('runs newest first, with upcoming visits above today', () => {
+    const journey = buildJourney(pregnancy, visits, moments, [], '2026-11-22');
+    expect(journey.map((e) => [e.type, e.date])).toEqual([
+      ['visit', '2026-11-26'],
+      ['today', '2026-11-22'],
+      ['moment', '2026-11-15'],
+      ['moment', '2026-11-15'],
+      ['visit', '2026-10-28'],
+      ['moment', '2026-08-10'],
+    ]);
+    expect(journey[0]).toMatchObject({ type: 'visit', upcoming: true });
+    expect(journey[4]).toMatchObject({ type: 'visit', upcoming: false });
+  });
+
+  it('shows the later of two same-day moments first', () => {
+    const journey = buildJourney(pregnancy, [], moments, [], '2026-11-22');
+    const sameDay = journey.filter((e) => e.date === '2026-11-15');
+    expect(sameDay.map((e) => e.type === 'moment' && e.moment.id)).toEqual(['m-note', 'm-kick']);
+  });
+
+  it('marks milestones once they are reached', () => {
+    const milestones = [
+      { week: 20, label: 'Halfway there' },
+      { week: 37, label: 'Full term' },
+    ];
+    const journey = buildJourney(pregnancy, [], [], [], '2026-11-22', milestones);
+    // Week 20 began on 2026-11-21; week 37 is still ahead.
+    expect(journey.filter((e) => e.type === 'milestone')).toEqual([
+      { type: 'milestone', date: '2026-11-21', week: 20, label: 'Halfway there' },
+    ]);
+  });
+
+  it('never shows milestones after a loss', () => {
+    const lost = { ...pregnancy, endedOn: '2026-12-01', outcome: 'loss' };
+    const journey = buildJourney(lost, [], [], [], '2027-01-01', [{ week: 20, label: 'Halfway there' }]);
+    expect(journey.some((e) => e.type === 'milestone')).toBe(false);
+  });
+
+  it('ends an ended pregnancy with its ending instead of today', () => {
+    const ended = { ...pregnancy, endedOn: '2027-04-08', outcome: 'birth' };
+    const journey = buildJourney(ended, [], [], [], '2027-05-01');
+    expect(journey).toEqual([{ type: 'ended', date: '2027-04-08', outcome: 'birth' }]);
+  });
+});
+
+describe('symptomGridByWeek', () => {
+  it('counts days per symptom per week, keeping empty weeks as zeros', () => {
+    const logs = [
+      { date: '2026-11-07', symptoms: ['fatigue', 'back_pain'] }, // week 18
+      { date: '2026-11-08', symptoms: ['fatigue'] }, // week 18
+      { date: '2026-11-22', symptoms: ['fatigue'] }, // week 20
+    ];
+    expect(symptomGridByWeek(pregnancy, logs, 20)).toEqual({
+      weeks: [18, 19, 20],
+      rows: [
+        { key: 'fatigue', counts: [2, 0, 1] },
+        { key: 'back_pain', counts: [1, 0, 0] },
+      ],
+    });
+  });
+
+  it('is empty when nothing was logged during the pregnancy', () => {
+    expect(symptomGridByWeek(pregnancy, [{ date: '2026-06-01', symptoms: ['cramps'] }], 20)).toEqual({
+      weeks: [],
+      rows: [],
+    });
+  });
+});
