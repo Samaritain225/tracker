@@ -20,7 +20,7 @@ order. Each merge into `main` builds a production APK.
 
 ## Next
 
-1. Stage 5, Islamic option (haid, istihada, nifas, prayers and fasts to make up): being designed. Decided 2026-11-22: Maliki school only, structured so other schools can be added later. No one will check the rulings: the owner chose to ship with Maliki sources listed, so the proposed scope is reduced to counting and reference (no "this day is haid" verdicts). Waiting on the owner's reaction to that scope.
+1. Stage 5, Islamic option (haid, istihada, nifas, prayers and fasts to make up): being designed. Decided 2026-11-22: Maliki school only, structured so other schools can be added later. No one will check the rulings: the owner chose to ship with Maliki sources listed, so the proposed scope is reduced to counting and reference (no "this day is haid" verdicts). Scope accepted: counts, reference limits, Ramadan make-up fasts, no verdicts. Limits verified on 2026-11-22 against Aisha Bewley's English Risala (sections 2.2f, 2.5, 2.6, chapter 23, with commentary quoting Khalil); cite the book by section, no PDF link (copyright unclear). Next: write the design.
 2. Stage 6, extras: patterns from her own logs, a doctor summary, custom symptoms.
 
 Lower value: calendar accessibility labels are hardcoded English Gregorian; the
