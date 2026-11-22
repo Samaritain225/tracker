@@ -33,6 +33,8 @@ import type {
   PregnancyMoment,
   PregnancyOutcome,
   PregnancyVisit,
+  FastMadeUp,
+  RamadanOwed,
   Settings,
   VisitKind,
 } from '@/db/schema';
@@ -73,7 +75,13 @@ export type BackupSettings = {
   theme: 'system' | 'light' | 'dark';
   /** Version 2. Files without it read as true, the app's default. */
   showStarSign: boolean;
+  /** The Islamic option's school; absent in older files, read as off. */
+  school: 'maliki' | null;
 };
+
+/** A Ramadan where she set the number of fasts owed herself. */
+export type BackupRamadanOwed = { hijriYear: number; owedDays: number };
+export type BackupFastMadeUp = { hijriYear: number; date: string; createdAt: number | null };
 
 /**
  * `key` links visits and moments to their pregnancy inside the file. It
@@ -127,6 +135,9 @@ export type Backup = {
   pregnancies: BackupPregnancy[];
   visits: BackupVisit[];
   moments: BackupMoment[];
+  /** Optional additions to version 2; empty in files written before them. */
+  ramadanOwed: BackupRamadanOwed[];
+  fastsMadeUp: BackupFastMadeUp[];
 };
 
 const FLOW_LEVELS: readonly FlowLevel[] = ['spotting', 'light', 'medium', 'heavy'];
@@ -138,6 +149,8 @@ export type PregnancyData = {
   pregnancies: Pregnancy[];
   visits: PregnancyVisit[];
   moments: PregnancyMoment[];
+  ramadanOwed?: RamadanOwed[];
+  fastsMadeUp?: FastMadeUp[];
 };
 
 export function buildBackup(
@@ -178,6 +191,7 @@ export function buildBackup(
           periodDurationDays: currentSettings.periodDurationDays,
           theme: currentSettings.theme as BackupSettings['theme'],
           showStarSign: currentSettings.showStarSign !== 0,
+          school: currentSettings.school === 'maliki' ? 'maliki' : null,
         }
       : null,
     pregnancies: [...pregnancyData.pregnancies]
@@ -217,6 +231,15 @@ export function buildBackup(
         photoFileName: m.photoFileName ?? null,
         createdAt: m.createdAt ?? null,
       })),
+    ramadanOwed: (pregnancyData.ramadanOwed ?? []).map((o) => ({
+      hijriYear: o.hijriYear,
+      owedDays: o.owedDays,
+    })),
+    fastsMadeUp: (pregnancyData.fastsMadeUp ?? []).map((f) => ({
+      hijriYear: f.hijriYear,
+      date: f.date,
+      createdAt: f.createdAt ?? null,
+    })),
   };
 }
 
@@ -317,6 +340,32 @@ export function parseBackup(text: string): BackupParseResult {
     momentList.push(moment);
   }
 
+  const owedList: BackupRamadanOwed[] = [];
+  for (const item of arrayOrEmpty(raw.ramadanOwed)) {
+    if (
+      !isObject(item) ||
+      !Number.isInteger(item.hijriYear) ||
+      !Number.isInteger(item.owedDays) ||
+      (item.owedDays as number) < 0 ||
+      (item.owedDays as number) > 30
+    ) {
+      return { ok: false, error: 'invalid' };
+    }
+    owedList.push({ hijriYear: item.hijriYear as number, owedDays: item.owedDays as number });
+  }
+
+  const madeUpList: BackupFastMadeUp[] = [];
+  for (const item of arrayOrEmpty(raw.fastsMadeUp)) {
+    if (!isObject(item) || !Number.isInteger(item.hijriYear) || !isISODate(item.date)) {
+      return { ok: false, error: 'invalid' };
+    }
+    madeUpList.push({
+      hijriYear: item.hijriYear as number,
+      date: item.date,
+      createdAt: optionalTimestamp(item.createdAt),
+    });
+  }
+
   return {
     ok: true,
     backup: {
@@ -331,6 +380,8 @@ export function parseBackup(text: string): BackupParseResult {
       pregnancies: pregnancyList.sort((a, b) => a.lastPeriodDate.localeCompare(b.lastPeriodDate)),
       visits: visitList,
       moments: momentList,
+      ramadanOwed: owedList,
+      fastsMadeUp: madeUpList,
     },
   };
 }
@@ -376,6 +427,10 @@ export type RestorePlan = {
   /** Pregnancies overlapping one already on the phone, skipped together
    * with their visits and moments. */
   skippedPregnancies: number;
+  /** Owed counts for years the phone has no number of its own for. */
+  ramadanOwedToAdd: BackupRamadanOwed[];
+  /** Made-up fasts the phone doesn't already have (same year and date). */
+  fastsMadeUpToAdd: BackupFastMadeUp[];
   /** Settings are only taken from the file on a phone with no data yet. */
   settingsToApply: BackupSettings | null;
 };
@@ -401,6 +456,8 @@ export function planRestore(
     periods: { startDate: string; endDate: string | null }[];
     logs: { date: string }[];
     pregnancies?: { lastPeriodDate: string; endedOn: string | null }[];
+    ramadanOwed?: { hijriYear: number }[];
+    fastsMadeUp?: { hijriYear: number; date: string }[];
   },
   backup: Backup,
 ): RestorePlan {
@@ -455,6 +512,12 @@ export function planRestore(
     skippedPeriods,
     skippedLogs: backup.dailyLogs.length - logsToAdd.length,
     skippedPregnancies,
+    ramadanOwedToAdd: backup.ramadanOwed.filter(
+      (o) => !(existing.ramadanOwed ?? []).some((e) => e.hijriYear === o.hijriYear),
+    ),
+    fastsMadeUpToAdd: backup.fastsMadeUp.filter(
+      (f) => !(existing.fastsMadeUp ?? []).some((e) => e.hijriYear === f.hijriYear && e.date === f.date),
+    ),
     settingsToApply: phoneIsEmpty ? backup.settings : null,
   };
 }
@@ -652,6 +715,7 @@ function readSettings(value: unknown): BackupSettings | null {
     ),
     theme,
     showStarSign: typeof showStarSign === 'boolean' ? showStarSign : true,
+    school: value.school === 'maliki' ? 'maliki' : null,
   };
 }
 

@@ -28,6 +28,8 @@ export type SchoolRules = {
   purityMinDays: number;
   /** Longest nifas after a birth, in days. */
   nifasMaxDays: number;
+  /** Longest haid during a pregnancy, from a given month of pregnancy. */
+  pregnancyHaidMaxDays: { fromMonth: number; days: number }[];
   /** Section of the source each reference comes from, for the sources screen. */
   citations: Record<ReferenceTopic, string>;
 };

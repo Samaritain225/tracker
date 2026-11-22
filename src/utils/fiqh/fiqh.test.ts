@@ -6,6 +6,8 @@ import { bleedingDates, bleedingRuns, islamicStatus, purityBefore } from './blee
 import { rulesFor } from './index';
 import { MALIKI } from './maliki';
 import { missedFastBleedingDates, ramadanRanges, suggestedMissedFasts } from './ramadan';
+import en from '@/i18n/locales/en.json';
+import fr from '@/i18n/locales/fr.json';
 
 const DEFAULT = 5;
 
@@ -198,5 +200,17 @@ describe('Ramadan', () => {
     );
     expect(bleeding.has('2026-02-20')).toBe(false);
     expect(bleeding.has('2026-03-10')).toBe(true);
+  });
+});
+
+describe('Islamic option text', () => {
+  it.each([
+    ['en', en],
+    ['fr', fr],
+  ] as const)('has %s text for every cited Maliki reference', (_language, locale) => {
+    const topics = (locale as { islamic: { maliki: Record<string, string> } }).islamic.maliki;
+    for (const topic of Object.keys(MALIKI.citations)) {
+      expect(topics[`topic_${topic}`]?.length ?? 0).toBeGreaterThan(10);
+    }
   });
 });

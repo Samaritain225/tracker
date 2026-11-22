@@ -30,6 +30,10 @@ type UseSettingsReturn = {
   /** Hides the late-period pregnancy prompt for the cycle that started
    * on `periodStart`; it comes back once a newer period is logged. */
   dismissPregnancyPrompt: (periodStart: string) => Promise<void>;
+  /** Turns the Islamic option on for a school, or off with null. Turning
+   * it on also turns the star sign off and switches to the Hijri
+   * calendar; she can change both back. */
+  updateSchool: (school: 'maliki' | null) => Promise<void>;
 };
 
 export function useSettings(): UseSettingsReturn {
@@ -139,6 +143,17 @@ export function useSettings(): UseSettingsReturn {
     }
   }, []);
 
+  const updateSchool = useCallback(async (school: 'maliki' | null) => {
+    try {
+      await db
+        .update(settings)
+        .set(school ? { school, showStarSign: 0, calendarType: 'hijri' } : { school: null })
+        .where(eq(settings.id, SETTINGS_ID));
+    } catch (e) {
+      console.error('Failed to update school:', e);
+    }
+  }, []);
+
   return {
     settings: currentSettings,
     isLoading: isQueryLoading(updatedAt, error),
@@ -151,5 +166,6 @@ export function useSettings(): UseSettingsReturn {
     updateReminders,
     updateShowStarSign,
     dismissPregnancyPrompt,
+    updateSchool,
   };
 }

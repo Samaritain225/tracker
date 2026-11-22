@@ -56,6 +56,7 @@ export default function SettingsScreen() {
     updateAppLock,
     updateReminders,
     updateShowStarSign,
+    updateSchool,
   } = useSettings();
   const router = useRouter();
   const { pregnancies, removePregnancy } = usePregnancies();
@@ -442,6 +443,40 @@ export default function SettingsScreen() {
             fullWidth
           />
         )}
+      </Card>
+
+      <Divider />
+
+      {/* Islamic option */}
+      <Card style={styles.buttonStack}>
+        <Text style={styles.sectionLabel}>{t('islamic.section')}</Text>
+        <View style={styles.sliderRow}>
+          <Text style={[styles.sliderLabel, { flex: 1 }]}>{t('islamic.switch')}</Text>
+          <Switch
+            value={settings?.school === 'maliki'}
+            onValueChange={(on) => updateSchool(on ? 'maliki' : null)}
+            trackColor={{ true: colors.primary, false: colors.border }}
+            thumbColor={colors.surface}
+          />
+        </View>
+        <Text style={styles.sliderNote}>{t('islamic.switch_note')}</Text>
+        {settings?.school ? (
+          <>
+            <Button
+              label={t('islamic.fasts_title')}
+              icon="moon-outline"
+              onPress={() => router.push('/islamic/fasts')}
+              variant="secondary"
+              fullWidth
+            />
+            <Button
+              label={t('islamic.sources_link')}
+              onPress={() => router.push('/islamic/sources')}
+              variant="ghost"
+              fullWidth
+            />
+          </>
+        ) : null}
       </Card>
 
       <Divider />

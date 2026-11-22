@@ -17,6 +17,8 @@ import { DEFAULT_CYCLE_DAYS, DEFAULT_PERIOD_DURATION_DAYS } from '@/constants/cy
 import { db } from '@/db/client';
 import {
   dailyLogs,
+  fastsMadeUp,
+  ramadanOwed,
   periods,
   pregnancies,
   pregnancyMoments,
@@ -103,6 +105,8 @@ export function readAllData() {
     pregnancies: db.select().from(pregnancies).all(),
     visits: db.select().from(pregnancyVisits).all(),
     moments: db.select().from(pregnancyMoments).all(),
+    ramadanOwed: db.select().from(ramadanOwed).all(),
+    fastsMadeUp: db.select().from(fastsMadeUp).all(),
   };
 }
 
@@ -117,6 +121,8 @@ export async function shareBackup(now: Date, dialogTitle: string): Promise<Share
     pregnancies: data.pregnancies,
     visits: data.visits,
     moments: data.moments,
+    ramadanOwed: data.ramadanOwed,
+    fastsMadeUp: data.fastsMadeUp,
   });
 
   const photos: BackupPhoto[] = [];
@@ -248,6 +254,15 @@ export async function applyRestorePlan(
       }
     }
 
+    for (const o of plan.ramadanOwedToAdd) {
+      tx.insert(ramadanOwed).values({ hijriYear: o.hijriYear, owedDays: o.owedDays }).run();
+    }
+    for (const f of plan.fastsMadeUpToAdd) {
+      tx.insert(fastsMadeUp)
+        .values({ hijriYear: f.hijriYear, date: f.date, ...(f.createdAt !== null ? { createdAt: f.createdAt } : {}) })
+        .run();
+    }
+
     if (plan.settingsToApply) {
       const { showStarSign, ...rest } = plan.settingsToApply;
       tx.update(settings)
@@ -292,6 +307,8 @@ export function deleteAllData(): void {
     // notifications the live queries listen for: the rows were gone from
     // the database while every screen kept showing them, and a restore
     // straight afterwards reported everything as "already on this phone".
+    tx.delete(fastsMadeUp).where(isNotNull(fastsMadeUp.id)).run();
+    tx.delete(ramadanOwed).where(isNotNull(ramadanOwed.hijriYear)).run();
     tx.delete(pregnancyMoments).where(isNotNull(pregnancyMoments.id)).run();
     tx.delete(pregnancyVisits).where(isNotNull(pregnancyVisits.id)).run();
     tx.delete(pregnancies).where(isNotNull(pregnancies.id)).run();
@@ -307,6 +324,7 @@ export function deleteAllData(): void {
         remindersEnabled: 0,
         showStarSign: 1,
         pregnancyPromptDismissedFor: null,
+        school: null,
       })
       .where(eq(settings.id, SETTINGS_ID))
       .run();

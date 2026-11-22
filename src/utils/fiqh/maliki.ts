@@ -13,6 +13,10 @@ export const MALIKI: SchoolRules = {
   habitPrecautionDays: 3,
   purityMinDays: 15,
   nifasMaxDays: 60,
+  pregnancyHaidMaxDays: [
+    { fromMonth: 3, days: 20 },
+    { fromMonth: 6, days: 30 },
+  ],
   citations: {
     haid_min: '2.5, 2.2f',
     haid_max: '2.5, 2.5e',

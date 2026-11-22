@@ -39,6 +39,8 @@ import { useDailyLogs } from '@/hooks/use-daily-logs';
 import { usePeriods } from '@/hooks/use-periods';
 import { usePregnancies } from '@/hooks/use-pregnancies';
 import { resolveMode } from '@/utils/pregnancy';
+import { IslamicCard } from '@/components/islamic/islamic-card';
+import { useIslamicStatus } from '@/hooks/use-islamic';
 import { daysBetween, formatDisplayDate, parseISODate } from '@/utils/date';
 import { findPeriodCovering } from '@/utils/cycle';
 import { useSettings } from '@/hooks/use-settings';
@@ -123,6 +125,9 @@ export default function DayDetailsScreen() {
   const inRecovery =
     mode.kind === 'recovery' && mode.pregnancy.endedOn !== null && date > mode.pregnancy.endedOn;
   const dayKind: DayKind = inPregnancy ? 'pregnancy' : inRecovery ? 'recovery' : 'cycle';
+  const islamicMode = dayKind === 'pregnancy' ? 'pregnant' : dayKind === 'recovery' ? 'recovery' : 'cycle';
+  const islamicOutcome =
+    dayKind === 'recovery' && mode.kind === 'recovery' ? mode.outcome : undefined;
 
   return (
     <DayDetailsForm
@@ -130,6 +135,17 @@ export default function DayDetailsScreen() {
       date={date}
       dayKind={dayKind}
       allowPeriodReturn={dayKind === 'recovery' && periodReturn === '1'}
+      islamic={
+        <DayIslamicLine
+          date={date}
+          mode={islamicMode}
+          outcome={islamicOutcome}
+          periods={periods}
+          logs={logs}
+          pregnancies={pregnancies}
+          settings={settings}
+        />
+      }
       language={(settings?.language as 'en' | 'fr') ?? 'fr'}
       calendarType={(settings?.calendarType as 'gregorian' | 'hijri') ?? 'gregorian'}
       initialLog={currentLog}
@@ -148,6 +164,8 @@ export default function DayDetailsScreen() {
 
 type DayDetailsFormProps = {
   date: string;
+  /** The Islamic option's reference line for this day, or nothing. */
+  islamic: React.ReactNode;
   dayKind: DayKind;
   /** Opened from "My period has come back": offer "period started",
    * switched on, even though this is a recovery day. */
@@ -176,6 +194,7 @@ type DayDetailsFormProps = {
 
 function DayDetailsForm({
   date,
+  islamic,
   dayKind,
   allowPeriodReturn,
   language,
@@ -377,6 +396,7 @@ function DayDetailsForm({
             {dayKind === 'pregnancy' ? (
               <Text style={styles.hint}>{t('day_details.bleeding_hint')}</Text>
             ) : null}
+            {islamic}
             <SegmentedControl
               options={[
                 { label: t('day_details.flow_spotting'), value: 'spotting' },
@@ -573,3 +593,29 @@ const makeStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: Spacing.sm,
   },
 });
+
+/**
+ * The Maliki reference for this day, from what is already saved. Kept
+ * outside the form so the form's state never depends on it.
+ */
+function DayIslamicLine(props: {
+  date: string;
+  mode: 'cycle' | 'pregnant' | 'recovery';
+  outcome?: 'birth' | 'loss';
+  periods: Parameters<typeof useIslamicStatus>[0]['periods'];
+  logs: Parameters<typeof useIslamicStatus>[0]['logs'];
+  pregnancies: Parameters<typeof useIslamicStatus>[0]['pregnancies'];
+  settings: Parameters<typeof useIslamicStatus>[0]['settings'];
+}) {
+  const { rules, status } = useIslamicStatus({
+    settings: props.settings,
+    periods: props.periods,
+    logs: props.logs,
+    pregnancies: props.pregnancies,
+    mode: props.mode,
+    recoveryOutcome: props.outcome,
+    dateISO: props.date,
+  });
+  if (!rules || status.kind === 'none') return null;
+  return <IslamicCard status={status} rules={rules} compact />;
+}
