@@ -1,20 +1,27 @@
 {
-  "version": 1,
+  "version": 2,
   "skills": {
+    "animate-expo": {
+      "source": "emilkowalski/skills",
+      "commit": "64eb3deb9a5fbfa041faf783e0bc3fd635872e9c",
+      "sourceType": "github",
+      "skillPath": "skills/animate-expo/SKILL.md",
+      "computedHash": "f221c9cfe03d9255ac3e2383bfb8b1481036142fe2fe9567403eb071d21092bb"
+    },
     "building-native-ui": {
       "source": "expo/skills",
       "sourceType": "github",
-      "computedHash": "342df93f481a0dba919f372d6c7b40d2b4bf5b51dd24363aea2e5d0bae27a6fa"
+      "computedHash": "ac35d41df7e7f36e022e75432375333c2f7515599f087933eaac0886cb54fcfa"
     },
     "expo-tailwind-setup": {
       "source": "expo/skills",
       "sourceType": "github",
-      "computedHash": "d39e806942fe880347f161056729b588a3cb0f1796270eebf52633fe11cfdce1"
+      "computedHash": "562b80515e214ab1b888524165d8a055f30c533fa6e4049e43088c249da53710"
     },
     "native-data-fetching": {
       "source": "expo/skills",
       "sourceType": "github",
-      "computedHash": "3cd0ba91f359f9f84cd40f36f356287994a0e952520fac6e03ef7952d0397879"
+      "computedHash": "0a35cfd1fa6af4301c50c34502378ae39cca64a59cd46a8812ab96c0228a2767"
     }
   }
 }
